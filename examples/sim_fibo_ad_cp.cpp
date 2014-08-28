@@ -134,6 +134,10 @@ try
 
         std::free(const_cast<double*>(g.mapaxes));
     }
+    if(grid->comm().size()>1)
+    {
+        grid->loadBalance();
+    }
 
 
     Opm::EclipseWriter outputWriter(param, newParserDeck,
@@ -186,6 +190,10 @@ try
 
     bool use_gravity = (gravity[0] != 0.0 || gravity[1] != 0.0 || gravity[2] != 0.0);
     const double *grav = use_gravity ? &gravity[0] : 0;
+
+    param.insertParameter(std::string("linsolver"), std::string("istl"));
+    param.insertParameter(std::string("linsolver_type"), std::string("2"));
+    param.insertParameter(std::string("linsolver_max_iterations"), std::string("1000"));
 
     // Linear solver.
     LinearSolverFactory linsolver(param);

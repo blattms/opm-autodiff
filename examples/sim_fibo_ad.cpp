@@ -83,6 +83,9 @@ try
     parameter::ParameterGroup param(argc, argv, false);
     std::cout << "---------------    Reading parameters     ---------------" << std::endl;
 
+    param.insertParameter(std::string("linsolver"), std::string("istl"));
+    param.insertParameter(std::string("linsolver_type"), std::string("2"));
+    param.insertParameter(std::string("linsolver_max_iterations"), std::string("1000"));
     // If we have a "deck_filename", grid and props will be read from that.
     bool use_deck = param.has("deck_filename");
     if (!use_deck) {
