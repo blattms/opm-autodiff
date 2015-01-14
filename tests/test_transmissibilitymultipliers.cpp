@@ -239,9 +239,6 @@ BOOST_AUTO_TEST_CASE(TransmissibilityMultipliersCpGrid)
     Opm::parameter::ParameterGroup param;
     Opm::ParserPtr parser(new Opm::Parser() );
 
-#warning TODO: there seems to be some index mess-up in DerivedGeology in the case of Dune::CpGrid
-#if 0
-
     /////
     // create a DerivedGeology object without any multipliers involved
     Opm::DeckConstPtr origDeck = parser->parseString(origDeckString);
@@ -298,55 +295,8 @@ BOOST_AUTO_TEST_CASE(TransmissibilityMultipliersCpGrid)
     Opm::DerivedGeology ntgGeology(*ntgGrid, *ntgProps, ntgEclipseState);
     /////
 
-    // compare the transmissibilities (note that for this we assume that the multipliers
-    // do not change the grid topology)
-#if DUNE_VERSION_NEWER(DUNE_GRID, 2,3)
-    auto gridView = origGrid->leafGridView();
-#else
-    auto gridView = origGrid->leafView();
-#endif
-    typedef Dune::MultipleCodimMultipleGeomTypeMapper<Dune::CpGrid::LeafGridView,
-                                                      Dune::MCMGElementLayout> ElementMapper;
-    ElementMapper elementMapper(gridView);
-    auto eIt = gridView.begin<0>();
-    const auto& eEndIt = gridView.end<0>();
-    for (; eIt < eEndIt; ++ eIt) {
-        // loop over the intersections of the current element
-        auto isIt = gridView.ibegin(*eIt);
-        const auto& isEndIt = gridView.iend(*eIt);
-        for (; isIt != isEndIt; ++isIt) {
-            if (isIt->boundary())
-                continue; // ignore domain the boundaries
-
-            // get the cell indices of the compressed grid for the face's interior and
-            // exterior cell
-            int insideCellIdx = elementMapper.map(*isIt->inside());
-            int outsideCellIdx = elementMapper.map(*isIt->outside());
-
-            // translate these to canonical indices (i.e., the logically Cartesian ones used by the deck)
-            insideCellIdx = origGrid->globalCell()[insideCellIdx];
-            outsideCellIdx = origGrid->globalCell()[outsideCellIdx];
-
-#warning TODO: how to get the intersection index for the compressed grid??
-#if 0
-            int globalIsIdx = 0; // <- how to get this??
-            double origTrans = origGeology.transmissibility()[globalIsIdx];
-            double multTrans = multGeology.transmissibility()[globalIsIdx];
-            double multMinusTrans = multMinusGeology.transmissibility()[globalIsIdx];
-            double ntgTrans = ntgGeology.transmissibility()[globalIsIdx];
-            BOOST_CHECK_CLOSE(origTrans*(insideCellIdx + 1), multTrans, 1e-6);
-            BOOST_CHECK_CLOSE(origTrans*(outsideCellIdx + 1), multMinusTrans, 1e-6);
-
-            std::array<int, 3> ijkInside, ijkOutside;
-            origGrid->getIJK(insideCellIdx, ijkInside);
-            origGrid->getIJK(outsideCellIdx, ijkOutside);
-            if (ijkInside[2] == ijkOutside[2])
-                // NTG only reduces the permebility of the X-Y plane
-                BOOST_CHECK_CLOSE(origTrans*0.5, ntgTrans, 1e-6);
-#endif
-        }
-    }
-#endif
+    return checkTransmissibilityValues(*origGrid, origGeology, multGeology,
+                                       multMinusGeology, ntgGeology);
 }
 
 #endif
