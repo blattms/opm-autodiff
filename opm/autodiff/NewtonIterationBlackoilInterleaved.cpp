@@ -29,7 +29,8 @@
 #include <opm/autodiff/NewtonIterationBlackoilInterleaved.hpp>
 #include <opm/autodiff/NewtonIterationUtilities.hpp>
 #include <opm/autodiff/ParallelRestrictedAdditiveSchwarz.hpp>
-#include <opm/autodiff/ParallelOverlappingILU0.hpp>
+//#include <opm/autodiff/ParallelOverlappingILU0.hpp>
+#include <opm/autodiff/ParallelILU0.hpp>
 #include <opm/autodiff/AutoDiffHelpers.hpp>
 #include <opm/common/Exceptions.hpp>
 #include <opm/core/linalg/ParallelIstlInformation.hpp>
@@ -244,7 +245,7 @@ namespace Opm
 
 #if HAVE_MPI
         typedef Dune::OwnerOverlapCopyCommunication<int, int> Comm;
-        typedef ParallelOverlappingILU0<Mat,Vector,Vector,Comm> ParPreconditioner;
+        typedef ParallelILU0<Mat,Vector,Vector,Comm> ParPreconditioner;
         template <class Operator>
         std::unique_ptr<ParPreconditioner>
         constructPrecond(Operator& opA, const Comm& comm) const
