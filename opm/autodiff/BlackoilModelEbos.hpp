@@ -87,6 +87,11 @@ SET_BOOL_PROP(EclFlowProblem, EnableDebuggingChecks, false);
 // SWATINIT is done by the flow part of flow_ebos. this can be removed once the legacy
 // code for fluid and satfunc handling gets fully retired.
 SET_BOOL_PROP(EclFlowProblem, EnableSwatinit, false);
+
+// For output, we need to access the transmissibilities of the sequential grid after the
+// grid has been load balanced. Tell ebos to not delete it at its initialization
+// proceedure.
+SET_BOOL_PROP(EclFlowProblem, ExportGlobalTransmissibility, true);
 }}
 
 namespace Opm {

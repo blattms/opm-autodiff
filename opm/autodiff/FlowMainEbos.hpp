@@ -36,6 +36,8 @@
 
 #include <opm/core/props/satfunc/RelpermDiagnostics.hpp>
 
+#include <opm/output/data/Solution.hpp>
+
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/common/OpmLog/EclipsePRTLog.hpp>
 #include <opm/common/OpmLog/LogUtil.hpp>
@@ -53,28 +55,6 @@
 
 namespace Opm
 {
-
-    /// \brief Gather cell data to global random access iterator
-    /// \tparam ConstIter The type of constant iterator.
-    /// \tparam Iter The type of the mutable iterator.
-    /// \param grid The distributed CpGrid where loadbalance has been run.
-    /// \param local The local container from which the data should be sent.
-    /// \param global The global container to gather to.
-    /// \warning The global container has to have the correct size!
-    template<class ConstIter, class Iter>
-    void gatherCellDataToGlobalIterator(const Dune::CpGrid& grid,
-                                         const ConstIter& local_begin,
-                                         const Iter& global_begin)
-    {
-        FixedSizeIterCopyHandle<ConstIter,Iter> handle(local_begin,
-                                                   global_begin);
-        const auto& gatherScatterInf = grid.cellScatterGatherInterface();
-        Dune::VariableSizeCommunicator<> comm(grid.comm(),
-                                              gatherScatterInf);
-        comm.backward(handle);
-    }
-
-
     // The FlowMain class is the ebos based black-oil simulator.
     class FlowMainEbos
     {
@@ -83,6 +63,7 @@ namespace Opm
         typedef typename GET_PROP(TypeTag, MaterialLaw)::EclMaterialLawManager MaterialLawManager;
         typedef typename GET_PROP_TYPE(TypeTag, Simulator) EbosSimulator;
         typedef typename GET_PROP_TYPE(TypeTag, Grid) Grid;
+        typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
         typedef typename GET_PROP_TYPE(TypeTag, Problem) Problem;
         typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
         typedef typename GET_PROP_TYPE(TypeTag, FluidSystem) FluidSystem;
@@ -568,52 +549,31 @@ namespace Opm
         {
             bool output      = param_.getDefault("output", true);
             bool output_ecl  = param_.getDefault("output_ecl", true);
-            if( output && output_ecl )
+            if( grid().comm().rank() == 0 && output && output_ecl )
             {
+                // only write on the first process and only if ECL output was requested
+
                 const Grid& grid = this->globalGrid();
+                const EclipseGrid& inputGrid = eclState().getInputGrid();
+                eclipse_writer_.reset(new EclipseWriter(eclState(), UgGridHelpers::createEclipseGrid( grid , inputGrid )));
 
-                if( output_cout_ ){
-                    const EclipseGrid& inputGrid = eclState().getInputGrid();
-                    eclipse_writer_.reset(new EclipseWriter(eclState(), UgGridHelpers::createEclipseGrid( grid , inputGrid )));
-                }
+                NNC nnc = eclState().getInputNNC();
+                computeCartesianTransmissibilities_(nnc);
 
-                const NNC* nnc = &geoprops_->nonCartesianConnections();
                 data::Solution globaltrans;
+                globaltrans["TRANX"] = cartTranx_;
+                globaltrans["TRANY"] = cartTrany_;
+                globaltrans["TRANZ"] = cartTranz_;
 
-                if ( must_distribute_ )
-                {
-                    // dirty and dangerous hack!
-                    // We rely on opmfil in GeoProps being hardcoded to true
-                    // which prevents the pinch processing from running.
-                    // Ergo the nncs are unchanged.
-                    nnc = &eclState().getInputNNC();
-
-                    // Gather the global simProps
-                    data::Solution localtrans = geoprops_->simProps(this->grid());
-                    for( const auto& localkeyval: localtrans)
-                    {
-                        auto& globalval = globaltrans[localkeyval.first].data;
-                        const auto& localval  = localkeyval.second.data;
-
-                        if( output_cout_ )
-                        {
-                            globalval.resize( grid.size(0));
-                        }
-                        gatherCellDataToGlobalIterator(this->grid(), localval.begin(),
-                                                       globalval.begin());
-                    }
-                }
-                else
-                {
-                    globaltrans = geoprops_->simProps(grid);
-                }
-
-                if( output_cout_ )
-                {
-                eclipse_writer_->writeInitial(globaltrans,
-                                              *nnc);
-                }
+                eclipse_writer_->writeInitial(globaltrans, nnc);
             }
+
+            // after this method, we won't need the transmissibilities for the sequential
+            // grid and for the Cartesian grid anymore.
+            ebosSimulator_->gridManager().releaseGlobalTransmissibility();
+            cartTranx_.data.clear();
+            cartTrany_.data.clear();
+            cartTranz_.data.clear();
         }
 
         // Setup output writer.
@@ -627,15 +587,7 @@ namespace Opm
             std::vector<double> global_perms;
             const double* writer_perms = fluidprops_->permeability();
 
-            if ( must_distribute_ )
-            {
-                // Create global permeabilities.
-                global_perms.resize(this->globalGrid().size(0));
-                gatherCellDataToGlobalIterator(this->grid(),
-                                                writer_perms,
-                                                global_perms.data());
-                writer_perms = global_perms.data();
-            }
+
             output_writer_.reset(new OutputWriter(globalGrid(),
                                                   param_,
                                                   eclState(),
@@ -780,6 +732,7 @@ namespace Opm
         const Grid& globalGrid()
         { return *globalGrid_; }
 
+
         Problem& ebosProblem()
         { return ebosSimulator_->problem(); }
 
@@ -794,6 +747,101 @@ namespace Opm
 
         std::unordered_set<std::string> defunctWellNames() const
         { return ebosSimulator_->gridManager().defunctWellNames(); }
+
+        // this function converts the face transmissibilities of the compressed grid to
+        // transmissibilities of the logically Cartesian grid (cf. the TRAN{X,Y,Z}
+        // keywords). It is quite a hack because it does not (and cannot) work for the
+        // cells which have faces in the cartesian grid that do not correspond to exactly
+        // one face in the compressed grid. (this is the case e.g. for faults.) to cover
+        // this up, the "non-neighboring" connections are exported as well. Note that
+        // "non-neighboring" is actually a misnomer because these faces only connect
+        // non-neighboring cells of the logically Cartesian grid, but in the compressed
+        // grid the cells are neighboring.
+        void computeCartesianTransmissibilities_(NNC& nnc)
+        {
+            typedef Dune::MultipleCodimMultipleGeomTypeMapper<GridView,
+                                                              Dune::MCMGElementLayout> ElementMapper;
+            const auto& comm = grid().comm();
+            const auto& grid = globalGrid();
+            const auto& gridView = grid.leafGridView();
+            const auto& elemMapper = ElementMapper(gridView);
+
+            int nx = grid.logicalCartesianSize()[0];
+            int ny = grid.logicalCartesianSize()[1];
+            int nz = grid.logicalCartesianSize()[2];
+            int numCartCells = nx*ny*nz;
+            cartTranx_.data.resize(numCartCells, 0.0);
+            cartTrany_.data.resize(numCartCells, 0.0);
+            cartTranz_.data.resize(numCartCells, 0.0);
+
+            cartTranx_.dim = UnitSystem::measure::transmissibility;
+            cartTrany_.dim = UnitSystem::measure::transmissibility;
+            cartTranz_.dim = UnitSystem::measure::transmissibility;
+
+            const Ewoms::EclTransmissibility<TypeTag>* eclTrans
+                = &ebosSimulator_->problem().eclTransmissibilities();
+            if (comm.size() > 1) {
+                // this is pretty hacky: The CpGrid calculates and stores the
+                // transmissibilities for the sequential grid for load balancing
+                // purposes. Let's use that object in the parallel case.
+                eclTrans = &ebosSimulator_->gridManager().globalTransmissibility();
+            }
+
+            auto elemIt = gridView.template begin</*codim=*/0>();
+            const auto& elemEndIt = gridView.template end</*codim=*/0>();
+            for (; elemIt != elemEndIt; ++ elemIt) {
+                const auto& elem = *elemIt;
+                auto isIt = gridView.ibegin(elem);
+                const auto& isEndIt = gridView.iend(elem);
+                for (; isIt != isEndIt; ++ isIt) {
+                    const auto& is = *isIt;
+
+                    if (is.boundary()) {
+                        continue;
+                    }
+
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2,4)
+                    unsigned I = elemMapper.index(is.inside());
+                    unsigned J = elemMapper.index(is.outside());
+#else
+                    unsigned I = elemMapper.map(is.inside());
+                    unsigned J = elemMapper.map(is.outside());
+#endif
+
+                    unsigned cartI = grid.globalCell()[I];
+                    unsigned cartJ = grid.globalCell()[J];
+
+                    if (cartJ < cartI) {
+                        // we only look at the case where the cartesian index of the
+                        // intersection's exterior element is larger than than that of
+                        // the interior element. since every face is looked at from both
+                        // sides, this works as advertised.
+                        continue;
+                    }
+
+                    // this is hacky because it assumes a given cell ordering on the
+                    // cartesian grid
+                    int delta = static_cast<int>(cartJ - cartI);
+                    if (delta == 1) {
+                        cartTranx_.data[cartI] = eclTrans->transmissibility(I, J);
+                    }
+                    else if (delta == nx) {
+                        cartTrany_.data[cartI] = eclTrans->transmissibility(I, J);
+                    }
+                    else if (delta == nx*ny) {
+                        cartTranz_.data[cartI] = eclTrans->transmissibility(I, J);
+                    }
+                    else {
+                        // the face is a non-neighboring connection
+                        nnc.addNNC(cartI, cartJ, eclTrans->transmissibility(I, J));
+                    }
+                }
+            }
+
+            // after this method we should not need the transmissibilities for the
+            // compressed sequential grid anymore
+            ebosSimulator_->gridManager().releaseGlobalTransmissibility();
+        }
 
         std::unique_ptr<EbosSimulator> ebosSimulator_;
         int  mpi_rank_ = 0;
@@ -813,6 +861,10 @@ namespace Opm
         std::string logFile_;
         // Needs to be shared pointer because it gets initialzed before MPI_Init.
         std::shared_ptr<Grid> globalGrid_;
+
+        data::CellData cartTranx_;
+        data::CellData cartTrany_;
+        data::CellData cartTranz_;
     };
 } // namespace Opm
 
