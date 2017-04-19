@@ -513,6 +513,7 @@ namespace Opm {
         template<class M, class X, class Y, class WellModel, bool overlapping >
         class WellModelMatrixAdapter : public Dune::AssembledLinearOperator<M,X,Y>
         {
+        public:
           typedef Dune::AssembledLinearOperator<M,X,Y> BaseType;
 
         public:
@@ -585,6 +586,10 @@ namespace Opm {
 
           virtual const matrix_type& getmat() const { return A_; }
 
+          virtual void getfullmat(matrix_type& Afull) const {
+              Afull=getmat();
+              wellMod_.wellModel().addWellContributions(Afull);
+          }
           communication_type* comm()
           {
               return comm_.operator->();

@@ -44,6 +44,7 @@ namespace Opm
         bool   require_full_sparsity_pattern_;
         bool   ignoreConvergenceFailure_;
         bool   linear_solver_use_amg_;
+        bool   linear_solver_sequential_;
 
         NewtonIterationBlackoilInterleavedParameters() { reset(); }
         // read values from parameter class
@@ -61,6 +62,8 @@ namespace Opm
             require_full_sparsity_pattern_ = param.getDefault("require_full_sparsity_pattern", require_full_sparsity_pattern_);
             ignoreConvergenceFailure_ = param.getDefault("linear_solver_ignoreconvergencefailure", ignoreConvergenceFailure_);
             linear_solver_use_amg_    = param.getDefault("linear_solver_use_amg", linear_solver_use_amg_ );
+            linear_solver_sequential_ = param.getDefault("linear_solver_sequential",
+                                                         linear_solver_sequential_);
         }
 
         // set default values
@@ -74,6 +77,7 @@ namespace Opm
             require_full_sparsity_pattern_ = false;
             ignoreConvergenceFailure_ = false;
             linear_solver_use_amg_    = false;
+            linear_solver_sequential_ = true;
         }
     };
 

@@ -38,8 +38,12 @@
 #include <dune/istl/solvers.hh>
 #include <dune/istl/owneroverlapcopy.hh>
 #include <dune/istl/paamg/amg.hh>
+#include <dune/istl/paamg/properties.hh>
+#include <dune/istl/paamg/pinfo.hh>
 
 #include <opm/common/utility/platform_dependent/reenable_warnings.h>
+
+#include <type_traits>
 
 namespace Dune
 {
@@ -276,11 +280,8 @@ namespace Opm
             else
 #endif
             {
-                // Construct preconditioner.
-                auto precond = constructPrecond(linearOperator, parallelInformation_arg);
-
-                // Solve.
-                solve(linearOperator, x, istlb, *sp, *precond, result);
+                maybeSolveOnOne(linearOperator, istlb, x, parallelInformation_arg,
+                                *sp, result);
             }
         }
 
@@ -446,6 +447,115 @@ namespace Opm
                 OPM_THROW_NOLOG(LinearSolverProblem, msg);
             }
         }
+
+        template<class OP, class P, class SP>
+        typename OP::BaseType* maybeSolveOnOne(OP& linearOperator, Vector& istlb,
+                             Vector& x,
+                             const P& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result) const
+        {
+            if(parameters_.linear_solver_sequential_)
+            {
+                /// Redistribute system to one process and solve
+                typedef Dune::Amg::MatrixGraph<const Matrix> MatrixGraph;
+                typedef Dune::Amg::PropertiesGraph<MatrixGraph,
+                                                   Dune::Amg::VertexProperties,
+                                                   Dune::Amg::EdgeProperties> PropertiesGraph;
+                MatrixGraph       graph(linearOperator.getmat());
+                Matrix fullA;
+                linearOperator.getfullmat(fullA);
+                PropertiesGraph pgraph(graph);
+                // Matrix with the whole system on one process
+                Matrix wholeA;
+                Matrix wholefullA;
+                typename OP::communication_type* newComm;
+                auto& istlComm = const_cast<typename OP::communication_type&>(parallelInformation_arg);
+                Dune::RedistributeInformation<Comm> redist;
+                bool existentOnRedist=Dune::graphRepartition(graph, istlComm, 1,
+                                                             newComm, redist.getInterface(),
+                                                             false);
+                Dune::redistributeMatrix(const_cast<Matrix&>(linearOperator.getmat()), wholeA, istlComm, *newComm, redist);
+                Dune::redistributeMatrix(fullA, wholefullA, istlComm, *newComm, redist);
+
+                Vector wholeIstlB(wholeA.N());
+                Vector wholeIstlX(wholeA.N());
+                wholeIstlX = 0;
+                redist.redistribute(istlb, wholeIstlB);
+                int solved = 1;
+                int converged = 1;
+
+                if ( existentOnRedist )
+                {
+                    Dune::MatrixAdapter<Matrix,Vector,Vector> adapter(wholeA), fulladapter(wholefullA);
+                    Dune::Amg::SequentialInformation seqcomm;
+                    auto precond = constructPrecond(adapter, seqcomm);
+                    Dune::SeqScalarProduct<Vector> ssp;
+                    //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
+                    Dune::SuperLU<Matrix> solver(wholeA);
+                    solver.apply(wholeIstlX, wholeIstlB, result);
+                    converged = result.converged? 1: 0;
+                }
+                if(  parallelInformation_arg.communicator().min(solved) == 0 )
+                    result.converged=false;
+                else
+                    result.converged=true;
+                redist.redistributeBackward(x, wholeIstlX);
+                 parallelInformation_arg.copyOwnerToAll(x,x);
+            }else
+            {
+                // Construct preconditioner.
+                auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+
+                // Solve.
+                solve(linearOperator, x, istlb, sp, *precond, result);
+            }
+            return nullptr;
+        }
+
+        template<class Op, class P, class SP>
+        void maybeSolveOnOne(Op& linearOperator, Vector& istlb, Vector& x,
+                           const P& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result,
+                             typename std::enable_if<
+                             std::is_same<Op,Dune::MatrixAdapter<Matrix,Vector,Vector>>::value
+                             ||
+                             std::is_same<Op,Dune::OverlappingSchwarzOperator<Matrix, Vector, Vector,P>>::value,void>::type* d = nullptr) const
+        {
+            // Construct preconditioner.
+            auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+            // Solve.
+            solve(linearOperator, x, istlb, sp, *precond, result);
+        }
+
+        template<class Op,  class SP>
+        void maybeSolveOnOne(Op& linearOperator, Vector& istlb, Vector& x,
+                             const Dune::Amg::SequentialInformation& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result) const
+        {
+            // Construct preconditioner.
+            auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+
+            Matrix fullA;
+            linearOperator.getfullmat(fullA);
+
+            Dune::SuperLU<Matrix> solver(fullA);
+            solver.apply(x, istlb, result);
+            // Solve.
+            //solve(linearOperator, x, istlb, sp, *precond, result);
+        }
+
+        template<class SP>
+        void maybeSolveOnOne(Dune::MatrixAdapter<Matrix,Vector,Vector>& linearOperator, Vector& istlb, Vector& x,
+                             const Dune::Amg::SequentialInformation& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result) const
+        {
+            // Construct preconditioner.
+            auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+
+            // Solve.
+            solve(linearOperator, x, istlb, sp, *precond, result);
+        }
+
     protected:
         mutable int iterations_;
         boost::any parallelInformation_;
