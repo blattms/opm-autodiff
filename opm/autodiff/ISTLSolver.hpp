@@ -456,13 +456,14 @@ namespace Opm
         {
             if(parameters_.linear_solver_sequential_)
             {
+                Matrix fullA;
+                linearOperator.getfullmat(fullA);
                 /// Redistribute system to one process and solve
                 typedef Dune::Amg::MatrixGraph<const Matrix> MatrixGraph;
                 typedef Dune::Amg::PropertiesGraph<MatrixGraph,
                                                    Dune::Amg::VertexProperties,
                                                    Dune::Amg::EdgeProperties> PropertiesGraph;
-                MatrixGraph       graph(linearOperator.getmat());
-                Matrix fullA;
+                MatrixGraph       graph(fullA);
                 linearOperator.getfullmat(fullA);
                 PropertiesGraph pgraph(graph);
                 // Matrix with the whole system on one process
@@ -481,7 +482,6 @@ namespace Opm
                 Vector wholeIstlX(wholeA.N());
                 wholeIstlX = 0;
                 redist.redistribute(istlb, wholeIstlB);
-                int solved = 1;
                 int converged = 1;
 
                 if ( existentOnRedist )
@@ -491,16 +491,16 @@ namespace Opm
                     auto precond = constructPrecond(adapter, seqcomm);
                     Dune::SeqScalarProduct<Vector> ssp;
                     //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
-                    Dune::SuperLU<Matrix> solver(wholeA);
+                    Dune::SuperLU<Matrix> solver(wholefullA, false);
                     solver.apply(wholeIstlX, wholeIstlB, result);
                     converged = result.converged? 1: 0;
                 }
-                if(  parallelInformation_arg.communicator().min(solved) == 0 )
+                if(  parallelInformation_arg.communicator().min(converged) == 0 )
                     result.converged=false;
                 else
                     result.converged=true;
                 redist.redistributeBackward(x, wholeIstlX);
-                 parallelInformation_arg.copyOwnerToAll(x,x);
+                parallelInformation_arg.copyOwnerToAll(x,x);
             }else
             {
                 // Construct preconditioner.
