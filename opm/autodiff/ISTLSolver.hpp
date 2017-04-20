@@ -512,19 +512,81 @@ namespace Opm
             return nullptr;
         }
 
-        template<class Op, class P, class SP>
-        void maybeSolveOnOne(Op& linearOperator, Vector& istlb, Vector& x,
-                           const P& parallelInformation_arg, SP& sp,
-                             Dune::InverseOperatorResult& result,
-                             typename std::enable_if<
-                             std::is_same<Op,Dune::MatrixAdapter<Matrix,Vector,Vector>>::value
-                             ||
-                             std::is_same<Op,Dune::OverlappingSchwarzOperator<Matrix, Vector, Vector,P>>::value,void>::type* d = nullptr) const
+        template<class OP, class P, class SP, int n>
+        void maybeSolveOnOne(OP& linearOperator, Dune::BlockVector<Dune::FieldVector<float,n>>& istlb, Vector& x,
+                             const P& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result) const
         {
             // Construct preconditioner.
             auto precond = constructPrecond(linearOperator, parallelInformation_arg);
             // Solve.
             solve(linearOperator, x, istlb, sp, *precond, result);
+        }
+
+        template<class OP, class P, class SP>
+        void maybeSolveOnOne(OP& linearOperator, Vector& istlb, Vector& x,
+                             const P& parallelInformation_arg, SP& sp,
+                             Dune::InverseOperatorResult& result,
+                             typename std::enable_if<
+                                 std::is_same<OP,Dune::OverlappingSchwarzOperator<Matrix, Vector, Vector,P>>::value &&
+                                 // SuperLU only works for double on old DUNE versions
+                                 std::is_same<typename Vector::field_type,double>::value,
+                                 void
+                             >::type* d = nullptr) const
+        {
+            ++d;
+
+            if(parameters_.linear_solver_sequential_)
+            {
+                const Matrix& fullA = linearOperator.getmat();
+                /// Redistribute system to one process and solve
+                typedef Dune::Amg::MatrixGraph<const Matrix> MatrixGraph;
+                typedef Dune::Amg::PropertiesGraph<MatrixGraph,
+                                                   Dune::Amg::VertexProperties,
+                                                   Dune::Amg::EdgeProperties> PropertiesGraph;
+                MatrixGraph       graph(fullA);
+                PropertiesGraph pgraph(graph);
+                // Matrix with the whole system on one process
+                Matrix wholefullA;
+                typename OP::communication_type* newComm;
+                auto& istlComm = const_cast<typename OP::communication_type&>(parallelInformation_arg);
+                Dune::RedistributeInformation<Comm> redist;
+                bool existentOnRedist=Dune::graphRepartition(graph, istlComm, 1,
+                                                             newComm, redist.getInterface(),
+                                                             false);
+                Dune::redistributeMatrix(const_cast<Matrix&>(fullA), wholefullA, istlComm, *newComm, redist);
+
+                Vector wholeIstlB(wholefullA.N());
+                Vector wholeIstlX(wholefullA.N());
+                wholeIstlX = 0;
+                redist.redistribute(istlb, wholeIstlB);
+                int converged = 1;
+
+                if ( existentOnRedist )
+                {
+                    Dune::MatrixAdapter<Matrix,Vector,Vector> adapter(wholefullA), fulladapter(wholefullA);
+                    Dune::Amg::SequentialInformation seqcomm;
+                    auto precond = constructPrecond(adapter, seqcomm);
+                    Dune::SeqScalarProduct<Vector> ssp;
+                    //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
+                    Dune::SuperLU<Matrix> solver(wholefullA, false);
+                    solver.apply(wholeIstlX, wholeIstlB, result);
+                    converged = result.converged? 1: 0;
+                }
+                if(  parallelInformation_arg.communicator().min(converged) == 0 )
+                    result.converged=false;
+                else
+                    result.converged=true;
+                redist.redistributeBackward(x, wholeIstlX);
+                 parallelInformation_arg.copyOwnerToAll(x,x);
+            }
+            else
+            {
+                // Construct preconditioner.
+                auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+                // Solve.
+                solve(linearOperator, x, istlb, sp, *precond, result);
+            }
         }
 
         template<class Op,  class SP>
@@ -538,9 +600,9 @@ namespace Opm
             Matrix fullA;
             linearOperator.getfullmat(fullA);
 
+            // Solve.
             Dune::SuperLU<Matrix> solver(fullA);
             solver.apply(x, istlb, result);
-            // Solve.
             //solve(linearOperator, x, istlb, sp, *precond, result);
         }
 
