@@ -392,17 +392,23 @@ namespace Opm
                     wholeIstlX = 0;
                     redist.redistribute(b, wholeIstlB);
                     int converged = 1;
-
                     Dune::InverseOperatorResult result;
+
                     if ( existentOnRedist )
                     {
                         Dune::MatrixAdapter<Matrix,Vector,Vector> adapter(wholefullA), fulladapter(wholefullA);
                         Dune::Amg::SequentialInformation seqcomm;
                         auto precond = constructPrecond(adapter, seqcomm);
                         Dune::SeqScalarProduct<Vector> ssp;
-                        //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
-                        Dune::SuperLU<Matrix> solver(wholefullA, false);
-                        solver.apply(wholeIstlX, wholeIstlB, result);
+                        if(parameters_.linear_solver_use_superlu_)
+                        {
+                            Dune::SuperLU<Matrix> solver(wholefullA, false);
+                            solver.apply(wholeIstlX, wholeIstlB, result);
+                        }
+                        else
+                        {
+                            solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
+                        }
                         converged = result.converged? 1: 0;
                     }
                     if(  info.communicator().min(converged) == 0 )
@@ -413,18 +419,18 @@ namespace Opm
                     info.copyOwnerToAll(x,x);
                     checkConvergence(result);
                 }
-            else
-            {
-                typedef Dune::OwnerOverlapCopyCommunication<int,int> Comm;
-                const ParallelISTLInformation& info =
-                    boost::any_cast<const ParallelISTLInformation&>( parallelInformation_);
-                Comm istlComm(info.communicator());
+                else
+                {
+                    typedef Dune::OwnerOverlapCopyCommunication<int,int> Comm;
+                    const ParallelISTLInformation& info =
+                        boost::any_cast<const ParallelISTLInformation&>( parallelInformation_);
+                    Comm istlComm(info.communicator());
 
-                // Construct operator, scalar product and vectors needed.
-                typedef Dune::OverlappingSchwarzOperator<Matrix, Vector, Vector,Comm> Operator;
-                Operator opA(A, istlComm);
-                solve( opA, x, b, istlComm  );
-            }
+                    // Construct operator, scalar product and vectors needed.
+                    typedef Dune::OverlappingSchwarzOperator<Matrix, Vector, Vector,Comm> Operator;
+                    Operator opA(A, istlComm);
+                    solve( opA, x, b, istlComm  );
+                }
             }
             else
 #endif
@@ -432,19 +438,28 @@ namespace Opm
                 if(parameters_.linear_solver_sequential_)
                 {
                     Dune::InverseOperatorResult result;
-                    Dune::SuperLU<Matrix> solver(A, false);
-                    solver.apply(x, b, result);
-                    checkConvergence(result);
+                    if(parameters_.linear_solver_use_superlu_)
+                    {
+                        Dune::SuperLU<Matrix> solver(A, false);
+                        solver.apply(x, b, result);
+                        checkConvergence(result);
+                    }
+                    else
+                    {
+                       // Construct operator, scalar product and vectors needed.
+                        Dune::MatrixAdapter< Matrix, Vector, Vector> opA( A );
+                        solve( opA, x, b );
+                    }
                 }else
                 {
-                // Construct operator, scalar product and vectors needed.
-                Dune::MatrixAdapter< Matrix, Vector, Vector> opA( A );
-                solve( opA, x, b );
+                    // Construct operator, scalar product and vectors needed.
+                    Dune::MatrixAdapter< Matrix, Vector, Vector> opA( A );
+                    solve( opA, x, b );
                 }
             }
         }
 
-                void solve(Matrix& A, Vector& x, Vector& b ) const
+        void solve(Matrix& A, Vector& x, Vector& b ) const
         {
             // Parallel version is deactivated until we figure out how to do it properly.
 #if HAVE_MPI
@@ -571,14 +586,20 @@ namespace Opm
 
                 if ( existentOnRedist )
                 {
-                    Dune::MatrixAdapter<Matrix,Vector,Vector> adapter(wholeA), fulladapter(wholefullA);
+                    Dune::MatrixAdapter<Matrix,Vector,Vector> adapter(wholefullA), fulladapter(wholefullA);
                     Dune::Amg::SequentialInformation seqcomm;
                     auto precond = constructPrecond(adapter, seqcomm);
                     Dune::SeqScalarProduct<Vector> ssp;
-                    //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
-                    Dune::SuperLU<Matrix> solver(wholefullA, false);
-                    solver.apply(wholeIstlX, wholeIstlB, result);
-                    converged = result.converged? 1: 0;
+                    if(parameters_.linear_solver_use_superlu_)
+                    {
+                        Dune::SuperLU<Matrix> solver(wholefullA, false);
+                        solver.apply(wholeIstlX, wholeIstlB, result);
+                    }
+                    else
+                    {
+                        solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
+                    }
+                        converged = result.converged? 1: 0;
                 }
                 if(  parallelInformation_arg.communicator().min(converged) == 0 )
                     result.converged=false;
@@ -653,9 +674,16 @@ namespace Opm
                     Dune::Amg::SequentialInformation seqcomm;
                     auto precond = constructPrecond(adapter, seqcomm);
                     Dune::SeqScalarProduct<Vector> ssp;
-                    //solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);            }
-                    Dune::SuperLU<Matrix> solver(wholefullA, false);
-                    solver.apply(wholeIstlX, wholeIstlB, result);
+
+                    if(parameters_.linear_solver_use_superlu_)
+                    {
+                        Dune::SuperLU<Matrix> solver(wholefullA, false);
+                        solver.apply(wholeIstlX, wholeIstlB, result);
+                    }
+                    else
+                    {
+                        solve(fulladapter, wholeIstlX, wholeIstlB, ssp, *precond, result);
+                    }
                     converged = result.converged? 1: 0;
                 }
                 if(  parallelInformation_arg.communicator().min(converged) == 0 )
@@ -685,8 +713,19 @@ namespace Opm
                 linearOperator.getfullmat(fullA);
 
                 // Solve.
-                Dune::SuperLU<Matrix> solver(fullA);
-                solver.apply(x, istlb, result);
+                if(parameters_.linear_solver_use_superlu_)
+                {
+                    Dune::SuperLU<Matrix> solver(fullA);
+                    solver.apply(x, istlb, result);
+                }
+                else
+                {
+                    Dune::MatrixAdapter<Matrix,Vector,Vector> op(fullA);
+                    // Construct preconditioner.
+                    auto precond = constructPrecond(op, parallelInformation_arg);
+                    x = 0;
+                    solve(op, x, istlb, sp, *precond, result);
+                }
             }
             else
             {
@@ -707,7 +746,8 @@ namespace Opm
                 std::cout<<"superlu"<<std::endl;
                 Dune::SuperLU<Matrix> solver(linearOperator.getmat(), false);
                 solver.apply(x, istlb, result);
-            }else
+            }
+            else
             {
                 // Construct preconditioner.
                 auto precond = constructPrecond(linearOperator, parallelInformation_arg);

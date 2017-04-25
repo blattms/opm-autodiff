@@ -45,6 +45,7 @@ namespace Opm
         bool   ignoreConvergenceFailure_;
         bool   linear_solver_use_amg_;
         bool   linear_solver_sequential_;
+        bool   linear_solver_use_superlu_ ;
 
         NewtonIterationBlackoilInterleavedParameters() { reset(); }
         // read values from parameter class
@@ -64,6 +65,7 @@ namespace Opm
             linear_solver_use_amg_    = param.getDefault("linear_solver_use_amg", linear_solver_use_amg_ );
             linear_solver_sequential_ = param.getDefault("linear_solver_sequential",
                                                          linear_solver_sequential_);
+            linear_solver_use_superlu_ = param.getDefault("linear_solver_use_superlu", linear_solver_use_superlu_ );
         }
 
         // set default values
@@ -77,6 +79,7 @@ namespace Opm
             require_full_sparsity_pattern_ = false;
             ignoreConvergenceFailure_ = false;
             linear_solver_use_amg_    = false;
+            linear_solver_use_superlu_   = false;
             linear_solver_sequential_ = true;
         }
     };
