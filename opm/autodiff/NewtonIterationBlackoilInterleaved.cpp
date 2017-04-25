@@ -473,7 +473,7 @@ namespace Opm
             return result.first;
         }
 
-        const NewtonIterationBlackoilInterface& newtonIncrement = residual.singlePrecision ?
+        const NewtonIterationBlackoilInterface& newtonIncrement = residual.singlePrecision && false ?
             detail::NewtonIncrement< maxNumberEquations_, float  > :: get( newtonIncrementSinglePrecision_, parameters_, parallelInformation_, np ) :
             detail::NewtonIncrement< maxNumberEquations_, double > :: get( newtonIncrementDoublePrecision_, parameters_, parallelInformation_, np );
 
