@@ -200,6 +200,11 @@ namespace Opm {
             {
                 OPM_THROW(std::logic_error,"solver down cast to ISTLSolver failed");
             }
+
+            // This might be dangerous?!
+            ebosSimulator_.model().clearAuxiliaryModules();
+            auto auxMod = std::make_shared<DummyAuxiliaryModule<TypeTag> >();
+            ebosSimulator_.model().addAuxiliaryModule(auxMod);
         }
 
         bool isParallel() const
@@ -1769,11 +1774,6 @@ namespace Opm {
                 convertInput( iterationIdx, reservoirState, ebosSimulator_ );
                 ebosSimulator_.model().invalidateIntensiveQuantitiesCache(/*timeIdx=*/0);
             }
-
-            // This might be dangerous?!
-            ebosSimulator_.model().clearAuxiliaryModules();
-            auto auxMod = std::make_shared<DummyAuxiliaryModule<TypeTag> >();
-            ebosSimulator_.model().addAuxiliaryModule(auxMod);
 
             ebosSimulator_.problem().beginIteration();
             ebosSimulator_.model().linearizer().linearize();

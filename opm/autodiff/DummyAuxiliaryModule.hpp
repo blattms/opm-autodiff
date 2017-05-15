@@ -55,10 +55,14 @@ public:
     }
     
     void applyInitial()
-    {}
+    {
+        return;
+    }
 
     void linearize(JacobianMatrix& matrix, GlobalEqVector& residual)
-    {}
+    {
+        return;
+    }
 };
 
 } // end namespace OPM
