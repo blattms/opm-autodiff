@@ -43,6 +43,7 @@
 #include <opm/autodiff/BlackoilModelEnums.hpp>
 #include <opm/autodiff/NewtonIterationBlackoilInterface.hpp>
 #include <opm/autodiff/RateConverter.hpp>
+#include <opm/autodiff/DummyAuxiliaryModule.hpp>
 
 #include <opm/core/grid.h>
 #include <opm/core/simulator/SimulatorReport.hpp>
@@ -1768,6 +1769,11 @@ namespace Opm {
                 convertInput( iterationIdx, reservoirState, ebosSimulator_ );
                 ebosSimulator_.model().invalidateIntensiveQuantitiesCache(/*timeIdx=*/0);
             }
+
+            // This might be dangerous?!
+            ebosSimulator_.model().clearAuxiliaryModules();
+            auto auxMod = std::make_shared<DummyAuxiliaryModule<TypeTag> >();
+            ebosSimulator_.model().addAuxiliaryModule(auxMod);
 
             ebosSimulator_.problem().beginIteration();
             ebosSimulator_.model().linearizer().linearize();
