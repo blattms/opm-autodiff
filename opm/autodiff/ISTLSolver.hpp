@@ -557,8 +557,11 @@ namespace Opm
         {
             if(parameters_.linear_solver_sequential_)
             {
-                Matrix fullA;
-                linearOperator.getfullmat(fullA);
+                Matrix fullA_;
+                // first entry is full matrix, second one is whether it is different
+                // from linearOperator.getmat()
+                auto matrix_and_bool = linearOperator.getFullMatrix(fullA_);
+                const Matrix& fullA = std::get<0>(matrix_and_bool);
                 /// Redistribute system to one process and solve
                 typedef Dune::Amg::MatrixGraph<const Matrix> MatrixGraph;
                 typedef Dune::Amg::PropertiesGraph<MatrixGraph,
@@ -575,7 +578,10 @@ namespace Opm
                 bool existentOnRedist=Dune::graphRepartition(graph, istlComm, 1,
                                                              newComm, redist.getInterface(),
                                                              false);
-                Dune::redistributeMatrix(const_cast<Matrix&>(linearOperator.getmat()), wholeA, istlComm, *newComm, redist);
+                if ( matrix_and_bool.second )
+                {
+                    Dune::redistributeMatrix(const_cast<Matrix&>(linearOperator.getmat()), wholeA, istlComm, *newComm, redist);
+                }
                 Dune::redistributeMatrix(fullA, wholefullA, istlComm, *newComm, redist);
 
                 Vector wholeIstlB(wholeA.N());
@@ -709,8 +715,8 @@ namespace Opm
         {
             if(parameters_.linear_solver_sequential_)
             {
-                Matrix fullA;
-                linearOperator.getfullmat(fullA);
+                Matrix fullA_;
+                const Matrix& fullA = linearOperator.getFullMatrix(fullA).first;
 
                 // Solve.
                 if(parameters_.linear_solver_use_superlu_)

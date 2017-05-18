@@ -586,9 +586,18 @@ namespace Opm {
 
           virtual const matrix_type& getmat() const { return A_; }
 
-          virtual void getfullmat(matrix_type& Afull) const {
-              Afull=getmat();
-              wellMod_.wellModel().addWellContributions(Afull);
+          std::pair<const matrix_type&, bool>
+          getFullMatrix(matrix_type& Afull) const {
+              if ( ! matrix_add_well_contributions_ )
+              {
+                  Afull=getmat();
+                  wellMod_.wellModel().addWellContributions(Afull);
+                  return std::make_pair(Afull, true);
+              }
+              else
+              {
+                  return std::make_pair(getmat(), false);
+              }
           }
           communication_type* comm()
           {
