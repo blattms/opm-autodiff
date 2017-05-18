@@ -417,7 +417,6 @@ namespace Opm
                         result.converged=true;
                     redist.redistributeBackward(x, wholeIstlX);
                     info.copyOwnerToAll(x,x);
-                    checkConvergence(result);
                 }
                 else
                 {
@@ -442,7 +441,6 @@ namespace Opm
                     {
                         Dune::SuperLU<Matrix> solver(A, false);
                         solver.apply(x, b, result);
-                        checkConvergence(result);
                     }
                     else
                     {
