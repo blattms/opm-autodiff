@@ -116,7 +116,7 @@ namespace Opm {
     }
 
 
-    template<class TypeTag>
+    template<typename TypeTag>
     void
     StandardWellsDense<TypeTag>::
     addWellContributions(Mat& mat) const

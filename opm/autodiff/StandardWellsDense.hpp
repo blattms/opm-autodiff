@@ -296,6 +296,11 @@ enum WellVariablePositions {
 
             void applyVREPGroupControl(WellState& well_state) const;
 
+            /// \! brief Modifies matrix to include influences of the well perforations.
+            ///
+            /// \param mat The linear system with the assembled mass balance
+            ///            equations
+            void addWellContributions(Mat& mat) const;
 
         protected:
             bool wells_active_;
@@ -359,11 +364,6 @@ enum WellVariablePositions {
                                      const WellState& well_state,
                                      const int well_number) const;
 
-            /// \! brief Modifies matrix to include influences of the well perforations.
-            ///
-            /// \param mat The linear system with the assembled mass balance
-            ///            equations
-            void addWellContributions(Mat& mat) const;
 
             using WellMapType = typename WellState::WellMapType;
             using WellMapEntryType = typename WellState::mapentry_t;
