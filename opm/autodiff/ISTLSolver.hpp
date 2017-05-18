@@ -580,7 +580,7 @@ namespace Opm
                 {
                     Dune::redistributeMatrix(const_cast<Matrix&>(linearOperator.getmat()), wholeA, istlComm, *newComm, redist);
                 }
-                Dune::redistributeMatrix(fullA, wholefullA, istlComm, *newComm, redist);
+                Dune::redistributeMatrix(const_cast<Matrix&>(fullA), wholefullA, istlComm, *newComm, redist);
 
                 Vector wholeIstlB(wholeA.N());
                 Vector wholeIstlX(wholeA.N());
