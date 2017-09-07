@@ -461,8 +461,8 @@ public:
     typedef Communication ParallelInformation;
 
 public:
-    OneComponentAggregationLevelTransferPolicy(const Criterion& crit, Communication& comm)
-        : criterion_(crit), communication_(&comm)
+    OneComponentAggregationLevelTransferPolicy(const Criterion& crit, const Communication& comm)
+        : criterion_(crit), communication_(&const_cast<Communication&>(comm))
     {}
 
     void createCoarseLevelSystem(const Operator& fineOperator)
@@ -633,7 +633,7 @@ public:
         category = Operator::category
     };
     BlackoilAmg(const Operator& fineOperator, const Criterion& criterion,
-                const SmootherArgs& smargs, Communication& comm)
+                const SmootherArgs& smargs, const Communication& comm)
         : smoother_(Detail::constructSmoother<Smoother>(fineOperator,smargs,comm)),
           levelTransferPolicy_(criterion, comm),
           coarseSolverPolicy_(smargs, criterion),
