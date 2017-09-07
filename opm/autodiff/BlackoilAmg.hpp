@@ -419,8 +419,8 @@ void buildCoarseSparseMatrix(M& coarseMatrix, G& fineGraph,
     delete[] overlapVertices;
 }
 
-template<class M, class G, class S>
-void buildCoarseSparseMatrix(M& coarseMatrix, G& fineGraph, typename G::VertexDescriptor& visitedMap,
+template<class M, class G, class V, class S>
+void buildCoarseSparseMatrix(M& coarseMatrix, G& fineGraph, const V& visitedMap,
                              const Dune::Amg::SequentialInformation& pinfo,
                              Dune::Amg::AggregatesMap<typename G::VertexDescriptor>& aggregates,
                              const S&)
@@ -440,7 +440,6 @@ void buildCoarseSparseMatrix(M& coarseMatrix, G& fineGraph, typename G::VertexDe
 
     Dune::Amg::ConnectivityConstructor<G,Dune::Amg::SequentialInformation>
         ::examine(fineGraph, visitedMap, pinfo, aggregates, sparsityBuilder);
-    return coarseMatrix;
 }
 
 } // end namespace Detail
