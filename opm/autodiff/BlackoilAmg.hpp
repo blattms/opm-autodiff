@@ -39,11 +39,16 @@ class UnSymmetricCriterion;
 }
 }
 
-namespace Opm
+namespace Dune
 {
 
 template <class Scalar, int n, int m>
 class MatrixBlock;
+
+}
+
+namespace Opm
+{
 
 namespace Detail
 {
@@ -66,9 +71,9 @@ struct ScalarType<Dune::FieldMatrix<FieldType, ROWS, COLS> >
 };
 
 template<typename FieldType, int ROWS, int COLS>
-struct ScalarType<MatrixBlock<FieldType, ROWS, COLS> >
+struct ScalarType<Dune::MatrixBlock<FieldType, ROWS, COLS> >
 {
-    typedef MatrixBlock<FieldType, 1, 1> value;
+    typedef Dune::MatrixBlock<FieldType, 1, 1> value;
 };
 
 template<typename BlockType, typename Allocator>
