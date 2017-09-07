@@ -161,7 +161,8 @@ struct ScalarType<Dune::BlockPreconditioner<X,Y,C,T> >
 template<class M, class X, class Y, class C>
 struct ScalarType<ParallelOverlappingILU0<M,X,Y,C> >
 {
-    typedef ParallelOverlappingILU0<typename ScalarType<X>::value,
+    typedef ParallelOverlappingILU0<typename ScalarType<M>::value,
+                                    typename ScalarType<X>::value,
                                     typename ScalarType<Y>::value,
                                     C> value;
 };
