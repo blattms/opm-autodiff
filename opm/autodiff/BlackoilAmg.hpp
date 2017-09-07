@@ -601,11 +601,18 @@ private:
     std::shared_ptr<typename CoarseOperator::matrix_type> coarseLevelMatrix_;
 };
 
-template<typename Operator, typename Smoother, typename Criterion,
-         typename Communication, std::size_t COMPONENT_INDEX>
+template<typename O, typename S, typename C,
+         typename P, std::size_t COMPONENT_INDEX>
 class BlackoilAmg
-    : public Dune::Preconditioner<typename Operator::domain_type, typename Operator::range_type>
+    : public Dune::Preconditioner<typename O::domain_type, typename O::range_type>
 {
+public:
+    using Operator = O;
+    using Criterion = C;
+    using Communication = P;
+    using Smoother = S;
+
+protected:
     using SmootherArgs   = typename Dune::Amg::SmootherTraits<Smoother>::Arguments;
     using CoarseOperator = typename Detail::ScalarType<Operator>::value;
     using CoarseSmoother = typename Detail::ScalarType<Smoother>::value;
