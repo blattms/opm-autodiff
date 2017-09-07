@@ -20,6 +20,7 @@
 #define OPM_AMG_HEADER_INCLUDED
 
 #include <opm/autodiff/ParallelOverlappingILU0.hpp>
+#include <opm/autodiff/CPRPreconditioner.hpp>
 #include <dune/istl/paamg/twolevelmethod.hh>
 #include <dune/istl/paamg/aggregates.hh>
 #include <dune/istl/bvector.hh>
@@ -671,5 +672,29 @@ private:
     CoarseSolverPolicy coarseSolverPolicy_;
     TwoLevelMethod twoLevelMethod_;
 };
+
+namespace ISTLUtility
+{
+///
+/// \brief A traits class for selecting the types of the preconditioner.
+///
+/// \tparam M The type of the matrix.
+/// \tparam X The type of the domain of the linear problem.
+/// \tparam Y The type of the range of the linear problem.
+/// \tparam P The type of the parallel information.
+/// \tparam C The type of the coarsening criterion to use.
+/// \tparam index The pressure index.
+////
+template<class M, class X, class Y, class P, class C, std::size_t index>
+struct BlackoilAmgSelector
+{
+    using Criterion = C;
+    using Selector = CPRSelector<M,X,Y,P>;
+    using ParallelInformation = typename Selector::ParallelInformation;
+    using Operator = typename Selector::Operator;
+    using Smoother = typename Selector::EllipticPreconditioner;
+    using AMG = BlackoilAmg<Operator,Smoother,Criterion,ParallelInformation,index>;
+};
+} // end namespace ISTLUtility
 } // end namespace Opm
 #endif
