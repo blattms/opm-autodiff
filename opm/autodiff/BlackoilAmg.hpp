@@ -547,11 +547,17 @@ public:
             row != rowEnd; ++row)
         {
             const auto& i = (*aggregatesMap_)[row.index()];
-            for(auto entry = row->begin(), entryEnd = row->end();
-                entry != entryEnd; ++entry)
+            if(i != AggregatesMap::ISOLATED)
             {
-                const auto& j = (*aggregatesMap_)[entry.index()];
-                (*coarseLevelMatrix_)[i][j] += (*entry)[COMPONENT_INDEX][COMPONENT_INDEX];
+                for(auto entry = row->begin(), entryEnd = row->end();
+                    entry != entryEnd; ++entry)
+                {
+                    const auto& j = (*aggregatesMap_)[entry.index()];       
+                    if ( j != AggregatesMap::ISOLATED )
+                    {
+                        (*coarseLevelMatrix_)[i][j] += (*entry)[COMPONENT_INDEX][COMPONENT_INDEX];
+                    }
+                }
             }
         }
     }
