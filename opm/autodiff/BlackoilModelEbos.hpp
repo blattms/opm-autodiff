@@ -75,7 +75,48 @@
 #include <algorithm>
 //#include <fstream>
 
-
+template<class C>
+struct CheckValues
+{
+public:
+    using DataType = typename C::value_type;
+    
+    CheckValues(const C& cont)
+        : cont_(cont), all_matched_(true)
+    {}
+    bool contains(int dim,int codim)const
+    {
+        return codim==0;
+    }
+    bool fixedsize(int dim,int codim)const
+    {
+        return true;
+    }
+    template<class E>
+    std::size_t size(const E& e) const
+    {
+        return 1;
+    }
+    template<class B, class E>
+    void gather(B& buff, const E& e) const
+    {
+        buff.write(cont_[e.index()]);
+    }
+    template<class B, class E>
+    void scatter(B& buff, const E& e, int s)
+    {
+        auto val = cont_[e.index()];
+        buff.read(val);
+        all_matched_ = all_matched_ && val==cont_[e.index()];
+    }
+    bool allMatched() const
+    {
+        return all_matched_;
+    }
+private:
+    const C& cont_;
+    bool all_matched_;
+};
 
 namespace Ewoms {
 namespace Properties {
@@ -298,6 +339,16 @@ namespace Opm {
                     throw; // re-throw up
                 }
 
+                
+                CheckValues<BVector > checker(x);
+                grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
+                int res = checker.allMatched();
+                grid_.comm().sum(res);
+                if (res)
+                {
+                    std::cerr<<"Solving not correct"<<std::endl;
+                    throw "bla";
+                }
                 perfTimer.reset();
                 perfTimer.start();
 
@@ -326,7 +377,15 @@ namespace Opm {
                     }
                     nonlinear_solver.stabilizeNonlinearUpdate(x, dx_old_, current_relaxation_);
                 }
-
+                CheckValues<BVector > checker1(x);
+                grid_.communicate(checker1, Dune::All_All_Interface, Dune::ForwardCommunication);
+                res = checker1.allMatched();
+                grid_.comm().sum(res);
+                if (res)
+                {
+                    std::cerr<<"Oscillation not correct"<<std::endl;
+                    throw "bla";
+                }
                 // Apply the update, with considering model-dependent limitations and
                 // chopping of the update.
                 updateState(x,iteration);
@@ -751,6 +810,16 @@ namespace Opm {
                     ++numSwitched;
             }
 
+            CheckValues<std::vector<char> > checker(wasSwitched_);
+            grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
+            int res = checker.allMatched();
+            grid_.comm().sum(res);
+            if (res)
+            {
+                std::cerr<<"Switching not correct"<<std::endl;
+                throw "bla";
+            }
+        
             // if the solution is updated the intensive Quantities need to be recalculated
             ebosSimulator_.model().invalidateIntensiveQuantitiesCache(/*timeIdx=*/0);
 
@@ -1642,7 +1711,7 @@ namespace Opm {
 
     public:
         bool isBeginReportStep_;
-        std::vector<bool> wasSwitched_;
+        std::vector<char> wasSwitched_;
     };
 } // namespace Opm
 
