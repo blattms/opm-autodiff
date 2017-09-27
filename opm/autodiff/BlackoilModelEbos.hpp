@@ -342,8 +342,8 @@ namespace Opm {
                 
                 CheckValues<BVector > checker(x);
                 grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
-                int res = checker.allMatched();
-                grid_.comm().sum(res);
+                int res = checker.allMatched()?0:1;
+                res = grid_.comm().sum(res);
                 if (res)
                 {
                     std::cerr<<"Solving not correct"<<std::endl;
@@ -379,8 +379,8 @@ namespace Opm {
                 }
                 CheckValues<BVector > checker1(x);
                 grid_.communicate(checker1, Dune::All_All_Interface, Dune::ForwardCommunication);
-                res = checker1.allMatched();
-                grid_.comm().sum(res);
+                res = checker1.allMatched()?0:1;
+                res = grid_.comm().sum(res);
                 if (res)
                 {
                     std::cerr<<"Oscillation not correct"<<std::endl;
@@ -812,8 +812,8 @@ namespace Opm {
 
             CheckValues<std::vector<char> > checker(wasSwitched_);
             grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
-            int res = checker.allMatched();
-            grid_.comm().sum(res);
+            int res = checker.allMatched()?0:1;
+            res = grid_.comm().sum(res);
             if (res)
             {
                 std::cerr<<"Switching not correct"<<std::endl;
