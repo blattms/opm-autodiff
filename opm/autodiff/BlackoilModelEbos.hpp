@@ -867,6 +867,8 @@ namespace Opm {
                  elemIt != elemEndIt;
                  ++elemIt)
             {
+                const unsigned cell_idx = elemCtx.globalSpaceIndex(/*spaceIdx=*/0, /*timeIdx=*/0);
+                PrimaryVariables& priVars = solution[ cell_idx ];
                // Add an epsilon to make it harder to switch back immediately after the primary variable was changed.
                 if (wasSwitched_[cell_idx])
                     wasSwitched_[cell_idx] = priVars.adaptPrimaryVariables(ebosProblem, cell_idx, 1e-5);
