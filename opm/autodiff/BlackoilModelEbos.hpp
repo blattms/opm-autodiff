@@ -80,7 +80,52 @@ struct CheckValues
 {
 public:
     using DataType = typename C::value_type;
-    
+
+    CheckValues(const C& cont)
+        : cont_(cont), all_matched_(true)
+    {}
+    bool contains(int dim,int codim)const
+    {
+        return codim==0;
+    }
+    bool fixedsize(int dim,int codim)const
+    {
+        return true;
+    }
+    template<class E>
+    std::size_t size(const E& e) const
+    {
+        return 1;
+    }
+    template<class B, class E>
+    void gather(B& buff, const E& e) const
+    {
+        buff.write(cont_[e.index()]);
+    }
+    template<class B, class E>
+    void scatter(B& buff, const E& e, int s)
+    {
+        auto val = cont_[e.index()];
+        buff.read(val);
+        all_matched_ = all_matched_ && val==cont_[e.index()];
+    }
+    bool allMatched() const
+    {
+        return all_matched_;
+    }
+private:
+    const C& cont_;
+    bool all_matched_;
+};
+
+template<typename T, typename A>
+struct CheckValues<Dune::BlockVector<Ewoms::BlackOilPrimaryVariables<T>,A> >
+{
+
+public:
+    using DataType = Dune::FieldVector<double,GET_PROP_VALUE(T, NumEq)>;
+    using C = Dune::BlockVector<Ewoms::BlackOilPrimaryVariables<T>,A>;
+
     CheckValues(const C& cont)
         : cont_(cont), all_matched_(true)
     {}
@@ -681,6 +726,15 @@ namespace Opm {
             const auto& elemEndIt = gridView.template end</*codim=*/0>();
             SolutionVector& solution = ebosSimulator_.model().solution( 0 /* timeIdx */ );
 
+            CheckValues<SolutionVector> checker0(solution);
+            grid_.communicate(checker0, Dune::All_All_Interface, Dune::ForwardCommunication);
+            int res0 = checker0.allMatched()?0:1;
+            res0 = grid_.comm().sum(res0);
+            if (res0)
+            {
+                std::cerr<<"Ebos solution not correct"<<std::endl;
+                throw "bla";
+            }
             // Store the initial solution.
             if( iterationIdx == 0 )
             {
