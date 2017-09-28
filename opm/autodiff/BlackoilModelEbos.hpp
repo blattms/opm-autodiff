@@ -853,15 +853,20 @@ namespace Opm {
                         }
                     }
                 }
+            }
 
-                grid_.communicate(checker0, Dune::All_All_Interface, Dune::ForwardCommunication);
-                res0 = checker0.allMatched()?0:1;
-                res0 = grid_.comm().sum(res0);
-                if (res0)
-                {
-                    std::cerr<<"Ebos solution not correct after update"<<std::endl;
-                    throw "bla";
-                }
+            grid_.communicate(checker0, Dune::All_All_Interface, Dune::ForwardCommunication);
+            res0 = checker0.allMatched()?0:1;
+            res0 = grid_.comm().sum(res0);
+            if (res0)
+            {
+                std::cerr<<"Ebos solution not correct after update"<<std::endl;
+                throw "bla";
+            }
+            for (auto elemIt = gridView.template begin</*codim=*/0>();
+                 elemIt != elemEndIt;
+                 ++elemIt)
+            {
                // Add an epsilon to make it harder to switch back immediately after the primary variable was changed.
                 if (wasSwitched_[cell_idx])
                     wasSwitched_[cell_idx] = priVars.adaptPrimaryVariables(ebosProblem, cell_idx, 1e-5);
@@ -871,14 +876,14 @@ namespace Opm {
                 if (wasSwitched_[cell_idx])
                     ++numSwitched;
             }
- grid_.communicate(checker0, Dune::All_All_Interface, Dune::ForwardCommunication);
-                res0 = checker0.allMatched()?0:1;
-                res0 = grid_.comm().sum(res0);
-                if (res0)
-                {
-                    std::cerr<<"Ebos solution not correct after switching"<<std::endl;
-                    throw "bla";
-                }
+            grid_.communicate(checker0, Dune::All_All_Interface, Dune::ForwardCommunication);
+            res0 = checker0.allMatched()?0:1;
+            res0 = grid_.comm().sum(res0);
+            if (res0)
+            {
+                std::cerr<<"Ebos solution not correct after switching"<<std::endl;
+                throw "bla";
+            }
             CheckValues<std::vector<char> > checker(wasSwitched_);
             grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
             int res = checker.allMatched()?0:1;
