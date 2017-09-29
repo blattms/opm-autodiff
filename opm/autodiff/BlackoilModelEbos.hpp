@@ -867,6 +867,10 @@ namespace Opm {
                  elemIt != elemEndIt;
                  ++elemIt)
             {
+                const auto& elem = *elemIt;
+
+                elemCtx.updatePrimaryStencil(elem);
+                elemCtx.updatePrimaryIntensiveQuantities(/*timeIdx=*/0);
                 const unsigned cell_idx = elemCtx.globalSpaceIndex(/*spaceIdx=*/0, /*timeIdx=*/0);
                 PrimaryVariables& priVars = solution[ cell_idx ];
                // Add an epsilon to make it harder to switch back immediately after the primary variable was changed.
