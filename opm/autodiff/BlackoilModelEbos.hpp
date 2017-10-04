@@ -214,7 +214,12 @@ namespace Opm {
             unsigned numDof = ebosSimulator_.model().numGridDof();
             wasSwitched_.resize(numDof);
             std::fill(wasSwitched_.begin(), wasSwitched_.end(), false);
-            ebosSimulator_.model().syncOverlap();
+            static bool isFirstStep = true;
+            if ( isFirstStep )
+            {
+                ebosSimulator_.model().syncOverlap();
+                isFirstStep = false;
+            }
         }
 
 
