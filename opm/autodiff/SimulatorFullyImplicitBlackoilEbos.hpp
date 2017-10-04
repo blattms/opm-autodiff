@@ -159,6 +159,10 @@ public:
             ebosSimulator_.model().invalidateIntensiveQuantitiesCache(/*timeIdx=*/0);
         }
 
+        // Sync the overlap region as the inital solution is applied on
+        // non-distributed grid during applyInitialSolution
+        ebosSimulator_.model().syncOverlap();
+
         // Create timers and file for writing timing info.
         Opm::time::StopWatch solver_timer;
         Opm::time::StopWatch step_timer;
