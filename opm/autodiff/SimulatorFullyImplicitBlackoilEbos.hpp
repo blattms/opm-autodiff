@@ -902,8 +902,73 @@ protected:
         const int numPhases = phaseUsage_.num_phases;
         const auto& oilPressure = reservoirState.pressure();
         const auto& saturations = reservoirState.saturation();
+        std::vector<double> satOil(numCells), satWater(numCells), satGas(numCells);
+        int noSuccess = 0;
+        for(int i = 0; i < numCells; ++i)
+        {
+            satOil[i] = saturations[i*numPhases + pu.phase_pos[Oil]];
+            satWater[i] = saturations[i*numPhases + pu.phase_pos[Water]];
+            satWater[Gas] = saturations[i*numPhases + pu.phase_pos[Gas]];
+        }
         const auto& rs          = reservoirState.gasoilratio();
         const auto& rv          = reservoirState.rv();
+
+        const auto& grid_ = simulator.gridManager().grid();
+        CheckValues<std::vector<double> > checker(oilPressure);
+        grid_.communicate(checker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        int res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"oil pressure not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        CheckValues<std::vector<double> > sochecker(satOil);
+        grid_.communicate(sochecker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"oil sat not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        CheckValues<std::vector<double> > swchecker(satWater);
+        grid_.communicate(swchecker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"water sat not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        CheckValues<std::vector<double> > sgchecker(satGas);
+        grid_.communicate(sgchecker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"gas sat not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        CheckValues<std::vector<double> > rschecker(rs);
+        grid_.communicate(rschecker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"rs not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        CheckValues<std::vector<double> > rvchecker(satOil);
+        grid_.communicate(rvchecker, Dune::All_All_Interface, Dune::ForwardCommunication);
+        res = checker.allMatched()?0:1;
+        res = grid_.comm().sum(res);
+        if (res)
+        {
+            std::cerr<<"rv not correct"<<std::endl;
+            ++ noSuccess;
+        }
+        if (noSuccess) throw "bla";
         for( int cellIdx = 0; cellIdx<numCells; ++cellIdx )
         {
             // set non-switching primary variables
