@@ -258,13 +258,14 @@ private:
                            const Criterion& crit,
                            const typename AMGType::SmootherArgs& args,
                            const Communication& comm)
-            : amg_(op, crit,args, comm), first_(true)
+            : amg_(op, crit,args, comm), op_(op), comm_(comm), first_(true)
         {}
 
         void apply(X& x, X& b, double reduction, Dune::InverseOperatorResult& res)
         {
             DUNE_UNUSED_PARAMETER(reduction);
             DUNE_UNUSED_PARAMETER(res);
+            /*
             if(first_)
             {
                 amg_.pre(x,b);
@@ -272,6 +273,12 @@ private:
                 x_=x;
             }
             amg_.apply(x,b);
+            */
+            using Chooser = Dune::ScalarProductChooser<X,Communication,AMGType::category>;
+            auto sp = Chooser::construct(comm_);
+            Dune::BiCGSTABSolver<X> solver(const_cast<typename AMGType::Operator&>(op_), *sp, amg_, 1e-2, 2, 0);
+            solver.apply(x,b,res);
+            delete sp;
         }
 
         void apply(X& x, X& b, Dune::InverseOperatorResult& res)
@@ -281,8 +288,10 @@ private:
 
         ~AMGInverseOperator()
         {
+            /*
             if(!first_)
                 amg_.post(x_);
+            */
         }
         AMGInverseOperator(const AMGInverseOperator& other)
             : x_(other.x_), amg_(other.amg_), first_(other.first_)
@@ -291,6 +300,8 @@ private:
     private:
         X x_;
         AMGType amg_;
+        const typename AMGType::Operator& op_;
+        const Communication& comm_;
         bool first_;
     };
 
