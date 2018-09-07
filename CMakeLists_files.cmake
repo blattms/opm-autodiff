@@ -37,6 +37,7 @@ list (APPEND MAIN_SOURCE_FILES
   opm/core/wells/well_controls.c
   opm/core/wells/wells.c
   opm/simulators/linalg/ExtractParallelGridInformationToISTL.cpp
+  opm/simulators/linalg/NestedFactorization.cpp
   opm/simulators/timestepping/TimeStepControl.cpp
   opm/simulators/timestepping/AdaptiveSimulatorTimer.cpp
   opm/simulators/timestepping/SimulatorTimer.cpp

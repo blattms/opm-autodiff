@@ -24,6 +24,7 @@
 #include <opm/simulators/linalg/MatrixBlock.hpp>
 #include <opm/simulators/linalg/BlackoilAmg.hpp>
 #include <opm/simulators/linalg/CPRPreconditioner.hpp>
+#include <opm/autodiff/NestedFactorization.hpp>
 #include <opm/autodiff/MPIUtilities.hpp>
 #include <opm/simulators/linalg/ParallelRestrictedAdditiveSchwarz.hpp>
 #include <opm/simulators/linalg/ParallelOverlappingILU0.hpp>
@@ -229,6 +230,10 @@ protected:
             parameters_.template init<TypeTag>();
             extractParallelGridInformationToISTL(simulator_.vanguard().grid(), parallelInformation_);
             detail::findOverlapRowsAndColumns(simulator_.vanguard().grid(),overlapRowAndColumns_);
+            if ( parameters_.use_nested_factorization_ )
+            {
+                setupNestedFactorization(grid);
+            }
         }
 
         // nothing to clean here
@@ -424,11 +429,18 @@ protected:
             else
 #endif
             {
-                // Construct preconditioner.
-                auto precond = constructPrecond(linearOperator, parallelInformation_arg);
+                if ( parameters_.use_nested_factorization_ )
+                {
+                    solveWithNestedFactorization(linearOperator, x, istlb, *sp,
+                                                 result);
+                }
+                else
+                {
+                    // Construct preconditioner.
+                    auto precond = constructPrecond(linearOperator, parallelInformation_arg);
 
-                // Solve.
-                solve(linearOperator, x, istlb, *sp, *precond, result);
+                    // Solve.
+                    solve(linearOperator, x, istlb, *sp, *precond, result);
             }
         }
 
@@ -622,6 +634,36 @@ protected:
             }
         }
     protected:
+        template<typename Grid>
+        void setupNestedFactorization(const Grid&)
+        {
+            // noop as nested factorization is only available with CpGrid;
+        }
+
+        void setupNestedFactorization(const Dune::CpGrid& grid)
+        {
+            nested_factorization_
+                .reset(new NestedFactorization<Matrix, Vector >(grid,
+                                                                parameters_.nf_alpha_,
+                                                                parameters_.nf_beta_));
+        }
+        template<typename Op, typename Vec, typename Sp>
+        void solveWithNestedFactorization(Op&, Vec&, Vec&, Sp&,
+                                          Dune::InverseOperatorResult&) const
+        {
+            OPM_THROW(std::logic_error, "Parallel nested factorization not implemented, yet.");
+        }
+        template<typename Op, typename Vec>
+        void solveWithNestedFactorization(Op& op, Vec& x, Vec& b,
+                                          Dune::SeqScalarProduct<Vec>& sp,
+                                          Dune::InverseOperatorResult& result) const
+        {
+            nested_factorization_->factorize(op.getmat());
+
+            // Solve.
+            solve(op, x, b, sp, *nested_factorization_, result);
+        }
+
 
         bool isParallel() const {
 #if HAVE_MPI
@@ -859,6 +901,7 @@ protected:
         FlowLinearSolverParameters parameters_;
         Vector weights_;
         bool scale_variables_;
+        mutable std::unique_ptr<NestedFactorization<Matrix, Vector > > nested_factorization_;
     }; // end ISTLSolver
 
 } // namespace Opm

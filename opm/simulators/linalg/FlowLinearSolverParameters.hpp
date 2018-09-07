@@ -55,6 +55,8 @@ NEW_PROP_TAG(IluReorderSpheres);
 NEW_PROP_TAG(UseGmres);
 NEW_PROP_TAG(LinearSolverRequireFullSparsityPattern);
 NEW_PROP_TAG(LinearSolverIgnoreConvergenceFailure);
+NEW_PROP_TAG(NestedFactorizationAlpha);
+NEW_PROP_TAG(NestedFactorizationBeta);
 NEW_PROP_TAG(UseAmg);
 NEW_PROP_TAG(UseCpr);
 NEW_PROP_TAG(LinearSolverBackend);
@@ -66,6 +68,7 @@ NEW_PROP_TAG(CprUseDrs);
 NEW_PROP_TAG(CprMaxEllIter);
 NEW_PROP_TAG(CprEllSolvetype);
 NEW_PROP_TAG(CprReuseSetup);
+NEW_PROP_TAG(UseNestedFactorization);
 
 SET_SCALAR_PROP(FlowIstlSolverParams, LinearSolverReduction, 1e-2);
 SET_SCALAR_PROP(FlowIstlSolverParams, IluRelaxation, 0.9);
@@ -90,8 +93,9 @@ SET_BOOL_PROP(FlowIstlSolverParams, CprUseDrs, false);
 SET_INT_PROP(FlowIstlSolverParams, CprMaxEllIter, 20);
 SET_INT_PROP(FlowIstlSolverParams, CprEllSolvetype, 0);
 SET_INT_PROP(FlowIstlSolverParams, CprReuseSetup, 0);
-
-
+SET_BOOL_PROP(FlowIstlSolverParams, UseNestedFactorization, false);
+SET_SCALAR_PROP(FlowIstlSolverParams, NestedFactorizationAlpha, 1.0);
+SET_SCALAR_PROP(FlowIstlSolverParams, NestedFactorizationBeta, 1.0);
 
 END_PROPERTIES
 
@@ -160,6 +164,9 @@ namespace Opm
         bool   use_cpr_;
         std::string system_strategy_;
         bool scale_linear_system_;
+        bool   use_nested_factorization_;
+        double nf_alpha_;
+        double nf_beta_;
 
         template <class TypeTag>
         void init()
@@ -186,6 +193,9 @@ namespace Opm
             cpr_max_ell_iter_  =  EWOMS_GET_PARAM(TypeTag, int, CprMaxEllIter);
             cpr_ell_solvetype_  =  EWOMS_GET_PARAM(TypeTag, int, CprEllSolvetype);
             cpr_reuse_setup_  =  EWOMS_GET_PARAM(TypeTag, int, CprReuseSetup);
+            use_nested_factorization_  = EWOMS_GET_PARAM(TypeTag, bool, UseNestedFactorization);
+            nf_alpha_ =  EWOMS_GET_PARAM(TypeTag, double, NestedFactorizationAlpha);
+            nf_beta_ =  EWOMS_GET_PARAM(TypeTag, double, NestedFactorizationBeta);
         }
 
         template <class TypeTag>
@@ -212,6 +222,9 @@ namespace Opm
             EWOMS_REGISTER_PARAM(TypeTag, int, CprMaxEllIter, "MaxIterations of the elliptic pressure part of the cpr solver");
             EWOMS_REGISTER_PARAM(TypeTag, int, CprEllSolvetype, "Solver type of elliptic pressure solve (0: bicgstab, 1: cg, 2: only amg preconditioner)");
             EWOMS_REGISTER_PARAM(TypeTag, int, CprReuseSetup, "Reuse Amg Setup");
+            EWOMS_REGISTER_PARAM(TypeTag, bool, UseNestedFactorization, "Use nested factorization as the linear solver's preconditioner");
+            EWOMS_REGISTER_PARAM(TypeTag, double, NestedFactorizationAlpha, "Alpha parameter for relaxed nested factorization (Kumar, Grigori, Nataf, Niu), 1 is traditional NF (Default: 1)");
+            EWOMS_REGISTER_PARAM(TypeTag, double, NestedFactorizationBeta, "Beta parameter for relaxed nested factorization (Kumar, Grigori, Nataf, Niu), 1 is traditional NF (Default: 1)");
         }
 
         FlowLinearSolverParameters() { reset(); }
@@ -233,6 +246,9 @@ namespace Opm
             ilu_milu_                 = MILU_VARIANT::ILU;
             ilu_redblack_             = false;
             ilu_reorder_sphere_       = true;
+            use_nested_factorization_ = false;
+            nf_alpha_                 = 1.;
+            nf_beta_                  = 1.;
         }
     };
 
