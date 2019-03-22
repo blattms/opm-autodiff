@@ -196,7 +196,8 @@ protected:
         ISTLSolverEbos(const Simulator& simulator)
             : simulator_(simulator),
               iterations_( 0 ),
-              converged_(false)
+              converged_(false),
+              isIORank_(simulator_.vanguard().grid().comm().rank()==0)
         {
             parameters_.template init<TypeTag>();
             extractParallelGridInformationToISTL(simulator_.vanguard().grid(), parallelInformation_);
