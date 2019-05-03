@@ -20,18 +20,20 @@
   module for the precise wording of the license and the list of
   copyright holders.
 */
-#include <config.h>
-#include <ebos/nncsorter.hpp>
+#ifndef EWOMS_EBOS_NNCSORTER_HH
+#define EWOMS_EBOS_NNCSORTER_HH
 
 #include <opm/common/OpmLog/OpmLog.hpp>
 
 #include <sstream>
 #include <algorithm>
 #include <iostream>
-namespace Ewoms
-{
-std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>& nncDataIn, std::vector<Opm::NNCdata> editnncData,
-                                                 bool log )
+
+namespace Ewoms {
+
+std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>& nncDataIn,
+                                                 std::vector<Opm::NNCdata> editnncData,
+                                                 bool doLog)
 {
     auto nncLess =
         [](const Opm::NNCdata& d1, const Opm::NNCdata& d2) {
@@ -42,7 +44,7 @@ std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>
 
     auto makeCell1LessCell2 =
         [](const Opm::NNCdata& entry) {
-            if ( entry.cell2 < entry.cell1)
+            if (entry.cell2 < entry.cell1)
                 return Opm::NNCdata(entry.cell2, entry.cell1, entry.trans);
             else
                 return entry;
@@ -56,7 +58,6 @@ std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>
     std::transform(editnncData.begin(), editnncData.end(), editnncData.begin(), makeCell1LessCell2);
     std::sort(nncData.begin(), nncData.end(), nncLess);
     auto candidate = nncData.begin();
-
     for (const auto& edit: editnncData) {
         auto printNncWarning =
             [](int c1, int c2) {
@@ -65,14 +66,14 @@ std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>
                      << " as it does not exist";
                 Opm::OpmLog::warning(sstr.str());
             };
-        if (candidate == nncData.end() && log) {
+        if (candidate == nncData.end() && doLog) {
             // no more NNCs left
             printNncWarning(edit.cell1, edit.cell2);
             continue;
         }
         if (candidate->cell1 != edit.cell1 || candidate->cell2 != edit.cell2) {
             candidate = std::lower_bound(nncData.begin(), nncData.end(), Opm::NNCdata(edit.cell1, edit.cell2, 0), nncLess);
-            if (candidate == nncData.end() && log) {
+            if (candidate == nncData.end() && doLog) {
                 // no more NNCs left
                 printNncWarning(edit.cell1, edit.cell2);
                 continue;
@@ -92,4 +93,6 @@ std::vector<Opm::NNCdata> sortNncAndApplyEditnnc(const std::vector<Opm::NNCdata>
     }
     return nncData;
 }
-} // end namespace Ewoms
+}
+
+#endif
