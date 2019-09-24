@@ -168,7 +168,7 @@ public:
             //TVDPF keyword
             else if (deck.hasKeyword(tmp)){
                 TracerVdTable dtable(deck.getKeyword(tmp).getRecord(0).getItem(0));
-                const auto& eclGrid = simulator_.vanguard().eclState().getInputGrid();
+                const auto& eclGrid = simulator_.vanguard().eclState(true).getInputGrid();
                 const auto& cartMapper = simulator_.vanguard().cartesianIndexMapper();
 
                 for (size_t globalDofIdx = 0; globalDofIdx < numGridDof; ++globalDofIdx){

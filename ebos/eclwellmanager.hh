@@ -135,7 +135,7 @@ public:
      */
     void beginEpisode(bool wasRestarted=false)
     {
-        const Opm::EclipseState& eclState = simulator_.vanguard().eclState();
+        const Opm::EclipseState& eclState = simulator_.vanguard().eclState(true);
         const Opm::Schedule& deckSchedule = simulator_.vanguard().schedule();
         const auto& summaryState = simulator_.vanguard().summaryState();
         unsigned episodeIdx = simulator_.episodeIndex();
@@ -706,7 +706,7 @@ protected:
         const auto& deckSchedule = simulator_.vanguard().schedule();
 
 #ifndef NDEBUG
-        const auto& eclState = simulator_.vanguard().eclState();
+        const auto& eclState = simulator_.vanguard().eclState(true);
         const auto& eclGrid = eclState.getInputGrid();
         assert( int(eclGrid.getNX()) == simulator_.vanguard().cartesianDimensions()[ 0 ] );
         assert( int(eclGrid.getNY()) == simulator_.vanguard().cartesianDimensions()[ 1 ] );

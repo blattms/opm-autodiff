@@ -364,7 +364,7 @@ namespace Opm
             }
 
             namespace fs = boost::filesystem;
-            const std::string& output_dir = eclState().getIOConfig().getOutputDir();
+            const std::string& output_dir = eclState(true).getIOConfig().getOutputDir();
             fs::path output_path(output_dir);
             fs::path deck_filename(EWOMS_GET_PARAM(TypeTag, std::string, EclDeckFileName));
             std::string basename;
@@ -410,7 +410,7 @@ namespace Opm
                     else
                         throw std::invalid_argument("Invalid value for parameter EnableDryRun: '"
                                                     +dryRunString+"'");
-                    auto& ioConfig = eclState().getIOConfig();
+                    auto& ioConfig = eclState(true).getIOConfig();
                     ioConfig.overrideNOSIM(yesno);
                 }
             }
@@ -427,11 +427,11 @@ namespace Opm
         Deck& deck()
         { return ebosSimulator_->vanguard().deck(); }
 
-        const EclipseState& eclState() const
-        { return ebosSimulator_->vanguard().eclState(); }
+        const EclipseState& eclState(bool assert) const
+        { return ebosSimulator_->vanguard().eclState(assert); }
 
-        EclipseState& eclState()
-        { return ebosSimulator_->vanguard().eclState(); }
+        EclipseState& eclState(bool assert)
+        { return ebosSimulator_->vanguard().eclState(assert); }
 
         const Schedule& schedule() const
         { return ebosSimulator_->vanguard().schedule(); }
@@ -449,7 +449,7 @@ namespace Opm
             // Run relperm diagnostics if we have more than one phase.
             if (FluidSystem::numActivePhases() > 1) {
                 RelpermDiagnostics diagnostic;
-                diagnostic.diagnosis(eclState(), deck(), this->grid());
+                diagnostic.diagnosis(eclState(true), deck(), this->grid());
             }
         }
 
@@ -458,11 +458,11 @@ namespace Opm
         {
             const auto& schedule = this->schedule();
             const auto& timeMap = schedule.getTimeMap();
-            auto& ioConfig = eclState().getIOConfig();
+            auto& ioConfig = eclState(false).getIOConfig(); // this is hit
             SimulatorTimer simtimer;
 
             // initialize variables
-            const auto& initConfig = eclState().getInitConfig();
+            const auto& initConfig = eclState(false).getInitConfig(); // this is hit
             simtimer.init(timeMap, (size_t)initConfig.getRestartStep());
 
             if (output_cout) {

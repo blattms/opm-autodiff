@@ -129,7 +129,7 @@ public:
     {
         const auto& gridView = vanguard_.gridView();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
-        const auto& eclState = vanguard_.eclState();
+        const auto& eclState = vanguard_.eclState(false); // this is hit
         const auto& eclGrid = eclState.getInputGrid();
         const auto& cartDims = cartMapper.cartesianDimensions();
         auto& transMult = eclState.getTransMult();
@@ -491,7 +491,7 @@ private:
         const auto& gridView = vanguard_.gridView();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
         const auto& cartDims = cartMapper.cartesianDimensions();
-        const auto& properties = vanguard_.eclState().get3DProperties();
+        const auto& properties = vanguard_.eclState(false).get3DProperties(); // this is hit
 
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
         ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
@@ -618,11 +618,11 @@ private:
         // First scale NNCs with EDITNNC.
         std::vector<Opm::NNCdata> unprocessedNnc;
         std::vector<Opm::NNCdata> processedNnc;
-        const auto& nnc = vanguard_.eclState().getInputNNC();
+        const auto& nnc = vanguard_.eclState(false).getInputNNC(); // this is hit
         if (!nnc.hasNNC())
             return make_tuple(processedNnc, unprocessedNnc);
 
-        auto nncData = sortNncAndApplyEditnnc(nnc.data(), vanguard_.eclState().getInputEDITNNC().data());
+        auto nncData = sortNncAndApplyEditnnc(nnc.data(), vanguard_.eclState(true).getInputEDITNNC().data());
 
         for (const auto& nncEntry : nncData) {
             auto c1 = nncEntry.cell1;
@@ -666,7 +666,7 @@ private:
     /// \brief Multiplies the grid transmissibilities according to EDITNNC.
     void applyEditNncToGridTrans_(const std::vector<int>& globalToLocal)
     {
-        const auto& editNnc = vanguard_.eclState().getInputEDITNNC();
+        const auto& editNnc = vanguard_.eclState(false).getInputEDITNNC(); // this is hit
         if (editNnc.empty())
             return;
 
@@ -703,7 +703,7 @@ private:
 
     void extractPermeability_()
     {
-        const auto& props = vanguard_.eclState().get3DProperties();
+        const auto& props = vanguard_.eclState(false).get3DProperties(); // this is hit
 
         unsigned numElem = vanguard_.gridView().size(/*codim=*/0);
         permeability_.resize(numElem);
@@ -857,7 +857,7 @@ private:
     {
         // compute volume weighted arithmetic average of NTG for
         // cells merged as an result of minpv.
-        const auto& eclState = vanguard_.eclState();
+        const auto& eclState = vanguard_.eclState(false); // this is hit
         const auto& eclGrid = eclState.getInputGrid();
 
         const std::vector<double>& ntg =

@@ -156,7 +156,7 @@ namespace Opm {
                           const bool terminal_output)
         : ebosSimulator_(ebosSimulator)
         , grid_(ebosSimulator_.vanguard().grid())
-        , phaseUsage_(phaseUsageFromDeck(eclState()))
+        , phaseUsage_(phaseUsageFromDeck(eclState(false))) // this is hit
         , has_disgas_(FluidSystem::enableDissolvedGas())
         , has_vapoil_(FluidSystem::enableVaporizedOil())
         , has_solvent_(GET_PROP_VALUE(TypeTag, EnableSolvent))
@@ -178,8 +178,8 @@ namespace Opm {
         bool isParallel() const
         { return  grid_.comm().size() > 1; }
 
-        const EclipseState& eclState() const
-        { return ebosSimulator_.vanguard().eclState(); }
+        const EclipseState& eclState(bool assert) const
+        { return ebosSimulator_.vanguard().eclState(assert); }
 
         /// Called once before each time step.
         /// \param[in] timer                  simulation timer
