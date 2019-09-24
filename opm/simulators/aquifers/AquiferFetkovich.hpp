@@ -75,7 +75,7 @@ namespace Opm
 
     inline void initializeConnections(const Aquancon::AquanconOutput& connection)
     {
-      const auto& eclState = Base::ebos_simulator_.vanguard().eclState();
+      const auto& eclState = Base::ebos_simulator_.vanguard().eclState(true);
       const auto& ugrid = Base::ebos_simulator_.vanguard().grid();
       const auto& grid = eclState.getInputGrid();
 

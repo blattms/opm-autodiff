@@ -219,7 +219,7 @@ public:
         const Opm::SummaryConfig summaryConfig = simulator_.vanguard().summaryConfig();
 
         // Only output RESTART_AUXILIARY asked for by the user.
-        const Opm::RestartConfig& restartConfig = simulator_.vanguard().eclState().getRestartConfig();
+        const Opm::RestartConfig& restartConfig = simulator_.vanguard().eclState(false).getRestartConfig(); // this is hit
         std::map<std::string, int> rstKeywords = restartConfig.getRestartKeywords(reportStepNum);
         for (auto& keyValue: rstKeywords) {
             keyValue.second = restartConfig.getKeyword(keyValue.first, reportStepNum);
@@ -272,7 +272,7 @@ public:
                     const size_t i = size_t(connection.getI());
                     const size_t j = size_t(connection.getJ());
                     const size_t k = size_t(connection.getK());
-                    const size_t index = simulator_.vanguard().eclState().getInputGrid().getGlobalIndex(i, j, k);
+                    const size_t index = simulator_.vanguard().eclState(true).getInputGrid().getGlobalIndex(i, j, k);
 
                     oilConnectionPressures_.emplace(std::make_pair(index, 0.0));
                     waterConnectionSaturations_.emplace(std::make_pair(index, 0.0));
@@ -323,7 +323,7 @@ public:
             krnSwMdcGo_.resize(bufferSize, 0.0);
         }
 
-        if (simulator_.vanguard().eclState().get3DProperties().hasDeckDoubleGridProperty("SWATINIT"))
+        if (simulator_.vanguard().eclState(false).get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) // this is hit
             ppcw_.resize(bufferSize, 0.0);
 
         if (FluidSystem::enableDissolvedGas() && rstKeywords["RSSAT"] > 0) {
@@ -833,7 +833,7 @@ public:
                     const size_t j = size_t(connection.getJ());
                     const size_t k = size_t(connection.getK());
 
-                    const size_t index = simulator_.vanguard().eclState().getInputGrid().getGlobalIndex(i, j, k);
+                    const size_t index = simulator_.vanguard().eclState(true).getInputGrid().getGlobalIndex(i, j, k);
                     auto& connectionData = wellData.connections[count];
                     connectionData.index = index;
                     count++;
@@ -1594,7 +1594,7 @@ public:
             }
         }
 
-        if (simulator_.vanguard().eclState().get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) {
+        if (simulator_.vanguard().eclState(true).get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) {
             auto oilWaterScaledEpsInfoDrainage = simulator.problem().materialLawManager()->oilWaterScaledEpsInfoDrainagePointerReferenceHack(elemIdx);
             oilWaterScaledEpsInfoDrainage->maxPcow =  ppcw_[elemIdx];
         }
@@ -1725,7 +1725,7 @@ private:
 
     void createLocalFipnum_()
     {
-        const std::vector<int>& fipnumGlobal = simulator_.vanguard().eclState().get3DProperties().getIntGridProperty("FIPNUM").getData();
+        const std::vector<int>& fipnumGlobal = simulator_.vanguard().eclState(false).get3DProperties().getIntGridProperty("FIPNUM").getData(); // this is hit
         // Get compressed cell fipnum.
         const auto& gridView = simulator_.vanguard().gridView();
         unsigned numElements = gridView.size(/*codim=*/0);
@@ -1797,7 +1797,7 @@ private:
 
     void fipUnitConvert_(ScalarBuffer& fip)
     {
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
             fip[FipDataType::WaterInPlace] = Opm::unit::convert::to(fip[FipDataType::WaterInPlace], Opm::unit::stb);
             fip[FipDataType::OilInPlace] = Opm::unit::convert::to(fip[FipDataType::OilInPlace], Opm::unit::stb);
@@ -1829,7 +1829,7 @@ private:
 
     void pressureUnitConvert_(Scalar& pav)
     {
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
             pav = Opm::unit::convert::to(pav, Opm::unit::psia);
         }
@@ -1854,7 +1854,7 @@ private:
         if (cip[FipDataType::PoreVolume] == 0)
             return;
 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         std::ostringstream ss;
         if (!reg) {
             ss << "                                                  ===================================================\n"
@@ -1901,7 +1901,7 @@ private:
                 if(forceDisableProdOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         std::ostringstream ss;
         if (wellProdNames[WellProdDataType::WellName].empty()) {
             ss << "======================================================= PRODUCTION REPORT =======================================================\n"//=================== \n"
@@ -1935,7 +1935,7 @@ private:
                 if(forceDisableInjOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         std::ostringstream ss;
         if (wellInjNames[WellInjDataType::WellName].empty()) {
             ss << "=================================================== INJECTION REPORT ========================================\n"//===================== \n"
@@ -1969,7 +1969,7 @@ private:
                 if(forceDisableCumOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         std::ostringstream ss;
         if (wellCumNames[WellCumDataType::WellName].empty()) {
             ss << "=================================================== CUMULATIVE PRODUCTION/INJECTION REPORT =========================================\n"

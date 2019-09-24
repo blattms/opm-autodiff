@@ -104,7 +104,7 @@ public:
         : simulator_(simulator)
     {
         const auto& vanguard = simulator.vanguard();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(false); // this is hit
 
         unsigned numElems = vanguard.grid().size(0);
         unsigned numCartesianElems = vanguard.cartesianSize();
