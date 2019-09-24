@@ -74,7 +74,7 @@ namespace Opm
             // This function is used to initialize and calculate the alpha_i for each grid connection to the aquifer
             inline void initializeConnections(const Aquancon::AquanconOutput& connection)
             {
-                const auto& eclState = Base::ebos_simulator_.vanguard().eclState();
+                const auto& eclState = Base::ebos_simulator_.vanguard().eclState(true);
                 const auto& ugrid = Base::ebos_simulator_.vanguard().grid();
                 const auto& grid = eclState.getInputGrid();
 

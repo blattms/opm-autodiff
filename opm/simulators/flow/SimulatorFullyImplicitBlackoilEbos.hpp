@@ -100,7 +100,7 @@ public:
     SimulatorFullyImplicitBlackoilEbos(Simulator& ebosSimulator)
         : ebosSimulator_(ebosSimulator)
     {
-        phaseUsage_ = phaseUsageFromDeck(eclState());
+        phaseUsage_ = phaseUsageFromDeck(eclState(false)); // this is hit
 
         // Only rank 0 does print to std::cout
         const auto& comm = grid().comm();
@@ -312,15 +312,15 @@ protected:
         ss.imbue(std::locale(std::locale::classic(), facet));
         ss << "\n                              **************************************************************************\n"
         << "  Balance  at" << std::setw(10) << (double)unit::convert::to(timer.simulationTimeElapsed(), unit::day) << "  Days"
-        << " *" << std::setw(30) << eclState().getTitle() << "                                          *\n"
+        << " *" << std::setw(30) << eclState(true).getTitle() << "                                          *\n"
         << "  Report " << std::setw(4) << timer.reportStepNum() << "    " << timer.currentDateTime()
         << "  *                                             Flow  version " << std::setw(11) << version << "  *\n"
         << "                              **************************************************************************\n";
         OpmLog::note(ss.str());
     }
 
-    const EclipseState& eclState() const
-    { return ebosSimulator_.vanguard().eclState(); }
+    const EclipseState& eclState(bool assert) const
+    { return ebosSimulator_.vanguard().eclState(assert); }
 
 
     const Schedule& schedule() const
@@ -328,7 +328,7 @@ protected:
 
     bool isRestart() const
     {
-        const auto& initconfig = eclState().getInitConfig();
+        const auto& initconfig = eclState(false).getInitConfig(); // this is hit
         return initconfig.restartRequested();
     }
 

@@ -202,7 +202,7 @@ public:
                 // for processes that do not hold the global grid we filter here using the local grid.
                 // If we would filter in filterConnection_ our partition would be empty and the connections of all
                 // wells would be removed.
-                const auto eclipseGrid = Opm::UgGridHelpers::createEclipseGrid(grid(), this->eclState().getInputGrid());
+                const auto eclipseGrid = Opm::UgGridHelpers::createEclipseGrid(grid(), this->eclState(true).getInputGrid());
                 this->schedule().filterConnections(eclipseGrid);
             }
         }
@@ -257,16 +257,16 @@ public:
 protected:
     void createGrids_()
     {
-        const auto& gridProps = this->eclState().get3DProperties();
+        const auto& gridProps = this->eclState(false).get3DProperties(); // this is hit
         const std::vector<double>& porv = gridProps.getDoubleGridProperty("PORV").getData();
 
         grid_.reset(new Dune::CpGrid());
-        grid_->processEclipseFormat(this->eclState().getInputGrid(),
+        grid_->processEclipseFormat(this->eclState(false).getInputGrid(), // this is hit
                                     /*isPeriodic=*/false,
                                     /*flipNormals=*/false,
                                     /*clipZ=*/false,
                                     porv,
-                                    this->eclState().getInputNNC());
+                                    this->eclState(false).getInputNNC()); // this is hit
 
         // we use separate grid objects: one for the calculation of the initial condition
         // via EQUIL and one for the actual simulation. The reason is that the EQUIL code
@@ -290,7 +290,7 @@ protected:
         // here would remove all well connections.
         if (equilGrid_)
         {
-            const auto eclipseGrid = Opm::UgGridHelpers::createEclipseGrid(equilGrid(), this->eclState().getInputGrid());
+            const auto eclipseGrid = Opm::UgGridHelpers::createEclipseGrid(equilGrid(), this->eclState(true).getInputGrid());
             this->schedule().filterConnections(eclipseGrid);
         }
     }

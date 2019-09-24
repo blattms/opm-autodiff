@@ -182,8 +182,8 @@ public:
         if (collectToIORank_.isIORank()) {
             globalGrid_ = simulator_.vanguard().grid();
             globalGrid_.switchToGlobalView();
-            eclIO_.reset(new Opm::EclipseIO(simulator_.vanguard().eclState(),
-                                            Opm::UgGridHelpers::createEclipseGrid(globalGrid_, simulator_.vanguard().eclState().getInputGrid()),
+            eclIO_.reset(new Opm::EclipseIO(simulator_.vanguard().eclState(true),
+                                            Opm::UgGridHelpers::createEclipseGrid(globalGrid_, simulator_.vanguard().eclState(true).getInputGrid()),
                                             simulator_.vanguard().schedule(),
                                             simulator_.vanguard().summaryConfig()));
         }
@@ -285,7 +285,7 @@ public:
         std::vector<char> buffer;
         if (collectToIORank_.isIORank()) {
             const auto& summary = eclIO_->summary();
-            const auto& eclState = simulator_.vanguard().eclState();
+            const auto& eclState = simulator_.vanguard().eclState(true);
 
             // Add TCPU
             if (totalCpuTime != 0.0)
@@ -366,7 +366,7 @@ public:
 
 
         if (collectToIORank_.isIORank()) {
-            const auto& eclState = simulator_.vanguard().eclState();
+            const auto& eclState = simulator_.vanguard().eclState(true);
             const auto& simConfig = eclState.getSimulationConfig();
 
             bool enableDoublePrecisionOutput = EWOMS_GET_PARAM(TypeTag, bool, EclOutputDoublePrecision);
@@ -402,7 +402,7 @@ public:
     void beginRestart()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
-        bool enableSwatinit = simulator_.vanguard().eclState().get3DProperties().hasDeckDoubleGridProperty("SWATINIT");
+        bool enableSwatinit = simulator_.vanguard().eclState(true).get3DProperties().hasDeckDoubleGridProperty("SWATINIT");
         std::vector<Opm::RestartKey> solutionKeys{
             {"PRESSURE", Opm::UnitSystem::measure::pressure},
             {"SWAT", Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx))},
@@ -419,7 +419,7 @@ public:
             {"PPCW", Opm::UnitSystem::measure::pressure, enableSwatinit}
         };
 
-        const auto& inputThpres = eclState().getSimulationConfig().getThresholdPressure();
+        const auto& inputThpres = eclState(true).getSimulationConfig().getThresholdPressure();
         std::vector<Opm::RestartKey> extraKeys = {{"OPMEXTRA", Opm::UnitSystem::measure::identity, false},
                                                   {"THRESHPR", Opm::UnitSystem::measure::pressure, inputThpres.active()}};
 
@@ -427,7 +427,7 @@ public:
         // and can not be used here.
         // We just ask the initconfig directly to be sure that we use the correct
         // index.
-        const auto& initconfig = simulator_.vanguard().eclState().getInitConfig();
+        const auto& initconfig = simulator_.vanguard().eclState(true).getInitConfig();
         int restartStepIdx = initconfig.getRestartStep();
 
         const auto& gridView = simulator_.vanguard().gridView();
@@ -565,10 +565,10 @@ private:
 
     Opm::NNC exportNncStructure_(const std::unordered_map<int,int>& cartesianToActive) const
     {
-        std::size_t nx = eclState().getInputGrid().getNX();
-        std::size_t ny = eclState().getInputGrid().getNY();
-        auto nncData = sortNncAndApplyEditnnc(eclState().getInputNNC().data(),
-                                              eclState().getInputEDITNNC().data());
+        std::size_t nx = eclState(true).getInputGrid().getNX();
+        std::size_t ny = eclState(true).getInputGrid().getNY();
+        auto nncData = sortNncAndApplyEditnnc(eclState(true).getInputNNC().data(),
+                                              eclState(true).getInputEDITNNC().data());
         const auto& unitSystem = simulator_.vanguard().deck().getActiveUnitSystem();
         std::vector<Opm::NNCdata> outputNnc;
         std::size_t index = 0;
@@ -720,8 +720,8 @@ private:
         }
     };
 
-    const Opm::EclipseState& eclState() const
-    { return simulator_.vanguard().eclState(); }
+    const Opm::EclipseState& eclState(bool assert) const
+    { return simulator_.vanguard().eclState(assert); }
 
     Opm::SummaryState& summaryState()
     { return simulator_.vanguard().summaryState(); }

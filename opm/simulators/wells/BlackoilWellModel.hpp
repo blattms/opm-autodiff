@@ -284,8 +284,8 @@ namespace Opm {
             const Grid& grid() const
             { return ebosSimulator_.vanguard().grid(); }
 
-            const EclipseState& eclState() const
-            { return ebosSimulator_.vanguard().eclState(); }
+            const EclipseState& eclState(bool assert) const
+            { return ebosSimulator_.vanguard().eclState(assert); }
 
             const Schedule& schedule() const
             { return ebosSimulator_.vanguard().schedule(); }

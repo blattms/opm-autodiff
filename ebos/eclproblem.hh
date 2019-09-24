@@ -506,7 +506,7 @@ public:
      * \copydoc FvBaseProblem::prepareOutputDir
      */
     std::string prepareOutputDir() const
-    { return this->simulator().vanguard().eclState().getIOConfig().getOutputDir(); }
+    { return this->simulator().vanguard().eclState(true).getIOConfig().getOutputDir(); }
 
     /*!
      * \copydoc FvBaseProblem::handlePositionalParameter
@@ -605,9 +605,9 @@ public:
         this->model().addOutputModule(new VtkEclTracerModule<TypeTag>(simulator));
         // Tell the black-oil extensions to initialize their internal data structures
         const auto& vanguard = simulator.vanguard();
-        SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState());
-        PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState());
-        FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState());
+        SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
+        PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
+        FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
 
         // create the ECL writer
         eclWriter_.reset(new EclWriterType(simulator));
@@ -638,7 +638,7 @@ public:
         ParentType::finishInit();
 
         auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& schedule = simulator.vanguard().schedule();
         const auto& timeMap = schedule.getTimeMap();
 
@@ -787,7 +787,7 @@ public:
         // Proceed to the next report step
         auto& simulator = this->simulator();
         int episodeIdx = simulator.episodeIndex();
-        auto& eclState = simulator.vanguard().eclState();
+        auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& schedule = simulator.vanguard().schedule();
         const auto& events = schedule.getEvents();
         const auto& timeMap = schedule.getTimeMap();
@@ -2154,7 +2154,7 @@ private:
     {
         const auto& simulator = this->simulator();
         const auto& deck = simulator.vanguard().deck();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& vanguard = simulator.vanguard();
 
         // read the rock compressibility parameters
@@ -2247,7 +2247,7 @@ private:
     {
         const auto& vanguard = this->simulator().vanguard();
         const auto& deck = vanguard.deck();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(true);
 
         if (!deck.hasKeyword("ROCKCOMP"))
             return; // deck does not enable rock compaction
@@ -2339,7 +2339,7 @@ private:
         const auto& simulator = this->simulator();
         const auto& vanguard = simulator.vanguard();
         const auto& deck = vanguard.deck();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(false); // this is hit
 
         // the PVT and saturation region numbers
         updatePvtnum_();
@@ -2376,7 +2376,7 @@ private:
         const auto& simulator = this->simulator();
         const auto& vanguard = simulator.vanguard();
         const auto& deck = vanguard.deck();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(true);
 
         // fluid-matrix interactions (saturation functions; relperm/capillary pressure)
         size_t numDof = this->model().numGridDof();
@@ -2392,7 +2392,7 @@ private:
     {
         const auto& simulator = this->simulator();
         const auto& vanguard = simulator.vanguard();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(false); // this is hit
         const auto& eclGrid = eclState.getInputGrid();
         const auto& props = eclState.get3DProperties();
 
@@ -2449,7 +2449,7 @@ private:
     {
         const auto& simulator = this->simulator();
         const auto& deck = simulator.vanguard().deck();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
 
         FluidSystem::initFromDeck(deck, eclState);
    }
@@ -2503,7 +2503,7 @@ private:
         // Set the start time of the simulation
         auto& simulator = this->simulator();
         const auto& schedule = simulator.vanguard().schedule();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(true);
         const auto& timeMap = schedule.getTimeMap();
         const auto& initconfig = eclState.getInitConfig();
         int episodeIdx = initconfig.getRestartStep();
@@ -2639,7 +2639,7 @@ private:
     {
         const auto& simulator = this->simulator();
         const auto& vanguard = simulator.vanguard();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(true);
         const auto& eclProps = eclState.get3DProperties();
 
         // make sure all required quantities are enables
@@ -2784,7 +2784,7 @@ private:
     {
         const auto& simulator = this->simulator();
         const auto& vanguard = simulator.vanguard();
-        const auto& eclState = vanguard.eclState();
+        const auto& eclState = vanguard.eclState(false); // this is hit
         size_t numDof = this->model().numGridDof();
 
         if (enableSolvent) {
@@ -2871,7 +2871,7 @@ private:
     void updatePvtnum_()
     {
         const auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& eclProps = eclState.get3DProperties();
 
         if (!eclProps.hasDeckIntGridProperty("PVTNUM"))
@@ -2891,7 +2891,7 @@ private:
     void updateSatnum_()
     {
         const auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& eclProps = eclState.get3DProperties();
 
         if (!eclProps.hasDeckIntGridProperty("SATNUM"))
@@ -2911,7 +2911,7 @@ private:
     void updateMiscnum_()
     {
         const auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& eclProps = eclState.get3DProperties();
 
         if (!eclProps.hasDeckIntGridProperty("MISCNUM"))
@@ -2931,7 +2931,7 @@ private:
     void updatePlmixnum_()
     {
         const auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState();
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& eclProps = eclState.get3DProperties();
 
         if (!eclProps.hasDeckIntGridProperty("PLMIXNUM"))
@@ -3108,7 +3108,7 @@ private:
                             }
                         }
                         // TODO: either the real initial solution needs to be computed or read from the restart file
-                        const auto& eclState = simulator.vanguard().eclState();
+                        const auto& eclState = simulator.vanguard().eclState(true);
                         const auto& initconfig = eclState.getInitConfig();
                         if (initconfig.restartRequested()) {
                             throw std::logic_error("restart is not compatible with using free boundary conditions");

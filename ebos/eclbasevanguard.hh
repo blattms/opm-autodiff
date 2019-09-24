@@ -390,11 +390,25 @@ public:
     /*!
      * \brief Return a reference to the internalized ECL deck.
      */
-    const Opm::EclipseState& eclState() const
-    { return *eclState_; }
+    const Opm::EclipseState& eclState(bool assert) const
+    {
+        if (assert) {
+            int myRank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+            assert(myRank == 0);
+        }
+        return *eclState_;
+    }
 
-    Opm::EclipseState& eclState()
-    { return *eclState_; }
+    Opm::EclipseState& eclState(bool assert)
+    {
+        if (assert) {
+            int myRank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+            assert(myRank == 0);
+        }
+        return *eclState_;
+    }
 
     /*!
      * \brief Return a reference to the object that managages the ECL schedule.
