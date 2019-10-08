@@ -1623,25 +1623,23 @@ public:
             const auto& simulator = this->simulator();
             const auto& model = this->model();
 
-            // we need a higher maxCompensation than the Newton tolerance because the
-            // current time step might be shorter than the last one
-            Scalar maxCompensation = 10.0*model.newtonMethod().tolerance();
-
             Scalar poro = intQuants.referencePorosity();
             Scalar dt = simulator.timeStepSize();
 
             EqVector dofDriftRate = drift_[globalDofIdx];
             dofDriftRate /= dt*context.dofTotalVolume(spaceIdx, timeIdx);
 
-            // compute the weighted total drift rate
-            Scalar totalDriftRate = 0.0;
-            for (unsigned eqIdx = 0; eqIdx < numEq; ++ eqIdx)
-                totalDriftRate +=
-                    std::abs(dofDriftRate[eqIdx])*dt*model.eqWeight(globalDofIdx, eqIdx)/poro;
-
-            // make sure that we do not exceed the maximum rate of drift compensation
-            if (totalDriftRate > maxCompensation)
-                dofDriftRate *= maxCompensation/totalDriftRate;
+            // we need a higher maxCompensation than the Newton tolerance because the
+            // current time step might be shorter than the last one
+            std::vector<Scalar> maxCNVrate(numEq,0.0);
+            for (unsigned eqIdx = 0; eqIdx < numEq; ++ eqIdx) {
+                maxCNVrate[eqIdx] = model.newtonMethod().tolerance() * poro / dt;
+                //maxCNVrate[eqIdx] = model.newtonMethod().tolerance() * poro / (model.newtonMethod().getavgBFactors(eqIdx) * dt);
+                if (std::abs(dofDriftRate[eqIdx]) > maxCNVrate[eqIdx]) {
+                    //std::cout << dofDriftRate[eqIdx] << " " << maxCNVrate[eqIdx] << std::endl;
+                    dofDriftRate[eqIdx] *= maxCNVrate[eqIdx] / dofDriftRate[eqIdx];
+                }
+            }
 
             for (unsigned eqIdx = 0; eqIdx < numEq; ++ eqIdx)
                 rate[eqIdx] -= dofDriftRate[eqIdx];

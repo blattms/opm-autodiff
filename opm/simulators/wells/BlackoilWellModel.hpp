@@ -246,6 +246,11 @@ namespace Opm {
             // Check if well equations is converged.
             ConvergenceReport getWellConvergence(const std::vector<Scalar>& B_avg, const bool checkGroupConvergence = false) const;
 
+            bool hasWellConverged(const std::vector<Scalar>& B_avg) const {
+                ConvergenceReport report = getWellConvergence(B_avg);
+                return report.converged();
+            }
+
             // return the internal well state, ignore the passed one.
             // Used by the legacy code to make it compatible with the legacy well models.
             const WellState& wellState(const WellState& well_state OPM_UNUSED) const;

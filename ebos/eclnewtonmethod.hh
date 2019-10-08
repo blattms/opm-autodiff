@@ -73,6 +73,17 @@ class EclNewtonMethod : public BlackOilNewtonMethod<TypeTag>
     static constexpr int contiPolymerEqIdx = Indices::contiPolymerEqIdx;
     static constexpr int contiEnergyEqIdx = Indices::contiEnergyEqIdx;
 
+    enum { enableSolvent = GET_PROP_VALUE(TypeTag, EnableSolvent) };
+    enum { enablePolymer = GET_PROP_VALUE(TypeTag, EnablePolymer) };
+    enum { enablePolymerMolarWeight = GET_PROP_VALUE(TypeTag, EnablePolymerMW) };
+    enum { enableFoam = GET_PROP_VALUE(TypeTag, EnableFoam) };
+    enum { gasPhaseIdx = FluidSystem::gasPhaseIdx };
+    enum { oilPhaseIdx = FluidSystem::oilPhaseIdx };
+    enum { waterPhaseIdx = FluidSystem::waterPhaseIdx };
+    enum { gasCompIdx = FluidSystem::gasCompIdx };
+    enum { oilCompIdx = FluidSystem::oilCompIdx };
+    enum { waterCompIdx = FluidSystem::waterCompIdx };
+
     friend NewtonMethod<TypeTag>;
     friend DiscNewtonMethod;
     friend ParentType;
@@ -87,6 +98,8 @@ public:
         relaxedTolerance_ = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonRelaxedTolerance);
 
         numStrictIterations_ = EWOMS_GET_PARAM(TypeTag, int, EclNewtonStrictIterations);
+
+        avgBFactors_.resize(numEq, 0.0);
     }
 
     /*!
@@ -122,17 +135,24 @@ public:
      */
     bool converged() const
     {
-        if (errorPvFraction_ < relaxedMaxPvFraction_)
-            return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
-        else if (this->numIterations() > numStrictIterations_)
-            return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
+        bool wellConverged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
 
-        return this->error_ <= this->tolerance() && errorSum_ <= sumTolerance_;
+        if (this->numIterations() > numStrictIterations_);
+            wellConverged = true;
+
+        if (errorPvFraction_ < relaxedMaxPvFraction_)
+            return (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
+        // else if (this->numIterations() > numStrictIterations_)
+        //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
+
+        return this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_;
     }
 
     void preSolve_(const SolutionVector& currentSolution  OPM_UNUSED,
                    const GlobalEqVector& currentResidual)
     {
+        updateBavg_();
+
         const auto& constraintsMap = this->model().linearizer().constraintsMap();
         this->lastError_ = this->error_;
         Scalar newtonMaxError = EWOMS_GET_PARAM(TypeTag, Scalar, NewtonMaxError);
@@ -170,22 +190,22 @@ public:
             Scalar dofVolume = this->model().dofTotalVolume(dofIdx);
 
             for (unsigned eqIdx = 0; eqIdx < r.size(); ++eqIdx) {
-                Scalar tmpError = r[eqIdx] * dt * this->model().eqWeight(dofIdx, eqIdx) / pvValue;
-                Scalar tmpError2 = r[eqIdx] * this->model().eqWeight(dofIdx, eqIdx);
+                Scalar CNV = r[eqIdx] * dt * avgBFactors_[eqIdx] / pvValue;
+                Scalar MB = r[eqIdx] * avgBFactors_[eqIdx];
 
                 // in the case of a volumetric formulation, the residual in the above is
                 // per cubic meter
                 if (GET_PROP_VALUE(TypeTag, UseVolumetricResidual)) {
-                    tmpError *= dofVolume;
-                    tmpError2 *= dofVolume;
+                    CNV *= dofVolume;
+                    MB *= dofVolume;
                 }
 
-                this->error_ = Opm::max(std::abs(tmpError), this->error_);
+                this->error_ = Opm::max(std::abs(CNV), this->error_);
 
-                if (std::abs(tmpError) > this->tolerance_)
+                if (std::abs(CNV) > this->tolerance_)
                     cnvViolated = true;
 
-                componentSumError[eqIdx] += std::abs(tmpError2);
+                componentSumError[eqIdx] += std::abs(MB);
             }
             if (cnvViolated)
                 errorPvFraction_ += pvValue;
@@ -210,7 +230,7 @@ public:
         // exponent is 1/3, i.e., cubic root.
         Scalar x = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumTolerance);
         Scalar y = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumToleranceExponent);
-        sumTolerance_ = x*std::pow(sumPv, y);
+        sumTolerance_ = x;//*std::pow(sumPv, y);
 
         this->endIterMsg() << " (max: " << this->tolerance_ << ", violated for " << errorPvFraction_*100 << "% of the pore volume), aggegate error: " << errorSum_ << " (max: " << sumTolerance_ << ")";
 
@@ -239,7 +259,50 @@ public:
         this->endIterMsg().str("");
     }
 
+    Scalar getavgBFactors(size_t eqIdx) const {
+        return avgBFactors_[eqIdx];
+    }
+
 private:
+
+    bool updateBavg_()
+    {
+        ElementContext elemCtx(this->simulator_);
+        const auto& vanguard = this->simulator_.vanguard();
+        auto elemIt = vanguard.gridView().template begin</*codim=*/0>();
+        const auto& elemEndIt = vanguard.gridView().template end</*codim=*/0>();
+        std::vector<Scalar> B_avg(numEq,1.0);
+        for (; elemIt != elemEndIt; ++elemIt) {
+            const auto& elem = *elemIt;
+
+            elemCtx.updatePrimaryStencil(elem);
+            elemCtx.updatePrimaryIntensiveQuantities(/*timeIdx=*/0);
+            const auto& iq = elemCtx.intensiveQuantities(/*spaceIdx=*/0, /*timeIdx=*/0);
+            const auto& fs = iq.fluidState();
+            B_avg[Indices::conti0EqIdx + FluidSystem::waterCompIdx] += 1.0 / fs.invB(waterPhaseIdx).value();
+            B_avg[Indices::conti0EqIdx + FluidSystem::gasCompIdx] += 1.0 / fs.invB(gasPhaseIdx).value();
+            B_avg[Indices::conti0EqIdx + FluidSystem::oilCompIdx] += 1.0 / fs.invB(oilPhaseIdx).value();
+            if (enableSolvent)
+                B_avg[ Indices::contiSolventEqIdx ] += 1.0 / iq.solventInverseFormationVolumeFactor().value();
+            if (enablePolymer)
+                B_avg[ Indices::contiPolymerEqIdx ] += 1.0 / fs.invB(waterPhaseIdx).value();
+            if (enableFoam)
+                B_avg[ Indices::contiFoamEqIdx ] += 1.0 / fs.invB(gasPhaseIdx).value();
+            if (enablePolymerMolarWeight)
+                B_avg[ Indices::contiPolymerMWEqIdx ] += 1.0 / fs.invB(waterPhaseIdx).value();
+        }
+        for (size_t i = 0; i < numEq; ++i) {
+            B_avg[i] = this->comm_.sum(B_avg[i]);
+        }
+        int totalNumGridDof = this->model().numGridDof();
+        totalNumGridDof = this->comm_.sum(totalNumGridDof);
+
+        for (size_t i = 0; i < numEq; ++i)
+            avgBFactors_[i] = B_avg[i] / totalNumGridDof ;
+
+        return true;
+    }
+
     Scalar errorPvFraction_;
     Scalar errorSum_;
 
@@ -248,6 +311,7 @@ private:
 
     Scalar sumTolerance_;
 
+    std::vector<Scalar> avgBFactors_;
     int numStrictIterations_;
 };
 } // namespace Opm
