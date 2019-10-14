@@ -292,7 +292,7 @@ private:
         const auto& vanguard = simulator_.vanguard();
         const auto& gridView = vanguard.gridView();
         const auto& elementMapper = simulator_.model().elementMapper();
-        const auto& eclState = simulator_.vanguard().eclState(true);
+        const auto& eclState = simulator_.vanguard().eclState(false); // this is hit
         const auto& deck = simulator_.vanguard().deck();
         const Opm::SimulationConfig& simConfig = eclState.getSimulationConfig();
         const auto& thpres = simConfig.getThresholdPressure();

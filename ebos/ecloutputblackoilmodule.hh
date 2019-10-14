@@ -1594,7 +1594,7 @@ public:
             }
         }
 
-        if (simulator_.vanguard().eclState(true).get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) {
+        if (simulator_.vanguard().eclState(false).get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) { // this is hit
             auto oilWaterScaledEpsInfoDrainage = simulator.problem().materialLawManager()->oilWaterScaledEpsInfoDrainagePointerReferenceHack(elemIdx);
             oilWaterScaledEpsInfoDrainage->maxPcow =  ppcw_[elemIdx];
         }
@@ -1901,7 +1901,7 @@ private:
                 if(forceDisableProdOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
         std::ostringstream ss;
         if (wellProdNames[WellProdDataType::WellName].empty()) {
             ss << "======================================================= PRODUCTION REPORT =======================================================\n"//=================== \n"
@@ -1935,7 +1935,7 @@ private:
                 if(forceDisableInjOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
         std::ostringstream ss;
         if (wellInjNames[WellInjDataType::WellName].empty()) {
             ss << "=================================================== INJECTION REPORT ========================================\n"//===================== \n"
@@ -1969,7 +1969,7 @@ private:
                 if(forceDisableCumOutput)
                         return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
+        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
         std::ostringstream ss;
         if (wellCumNames[WellCumDataType::WellName].empty()) {
             ss << "=================================================== CUMULATIVE PRODUCTION/INJECTION REPORT =========================================\n"
