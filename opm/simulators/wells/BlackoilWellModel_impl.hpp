@@ -528,7 +528,7 @@ namespace Opm {
         // time step. Wells that are added at the same time step as RESTART is initiated
         // will not be present in a restart file. Use the previous time step to retrieve
         // wells that have information written to the restart file.
-        const int report_step = std::max(eclState(true).getInitConfig().getRestartStep() - 1, 0);
+        const int report_step = std::max(eclState(false).getInitConfig().getRestartStep() - 1, 0); // this is hit
         const auto& summaryState = ebosSimulator_.vanguard().summaryState();
 
         // Make wells_ecl_ contain only this partition's non-shut wells.
@@ -546,7 +546,7 @@ namespace Opm {
 
         const int nw = wells_ecl_.size();
         if (nw > 0) {
-            const auto phaseUsage = phaseUsageFromDeck(eclState(true));
+            const auto phaseUsage = phaseUsageFromDeck(eclState(false)); // this is hit
             const size_t numCells = Opm::UgGridHelpers::numCells(grid());
             const bool handle_ms_well = (param_.use_multisegment_well_ && anyMSWellOpenLocal());
             well_state_.resize(wells_ecl_, schedule(), handle_ms_well, numCells, phaseUsage, well_perf_data_, summaryState); // Resize for restart step
@@ -554,7 +554,7 @@ namespace Opm {
         }
 
         // for ecl compatible restart the current controls are not written
-        const auto& ioCfg = eclState(true).getIOConfig();
+        const auto& ioCfg = eclState(false).getIOConfig(); // this is hit
         const auto ecl_compatible_rst = ioCfg.getEclCompatibleRST();        
         if (true || ecl_compatible_rst) { // always set the control from the schedule
             for (int w = 0; w <nw; ++w) {

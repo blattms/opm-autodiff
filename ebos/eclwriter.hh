@@ -402,7 +402,7 @@ public:
     void beginRestart()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
-        bool enableSwatinit = simulator_.vanguard().eclState(true).get3DProperties().hasDeckDoubleGridProperty("SWATINIT");
+        bool enableSwatinit = simulator_.vanguard().eclState(false).get3DProperties().hasDeckDoubleGridProperty("SWATINIT"); // this is hit
         std::vector<Opm::RestartKey> solutionKeys{
             {"PRESSURE", Opm::UnitSystem::measure::pressure},
             {"SWAT", Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx))},
@@ -419,7 +419,7 @@ public:
             {"PPCW", Opm::UnitSystem::measure::pressure, enableSwatinit}
         };
 
-        const auto& inputThpres = eclState(true).getSimulationConfig().getThresholdPressure();
+        const auto& inputThpres = eclState(false).getSimulationConfig().getThresholdPressure(); // this is hit
         std::vector<Opm::RestartKey> extraKeys = {{"OPMEXTRA", Opm::UnitSystem::measure::identity, false},
                                                   {"THRESHPR", Opm::UnitSystem::measure::pressure, inputThpres.active()}};
 
@@ -427,7 +427,7 @@ public:
         // and can not be used here.
         // We just ask the initconfig directly to be sure that we use the correct
         // index.
-        const auto& initconfig = simulator_.vanguard().eclState(true).getInitConfig();
+        const auto& initconfig = simulator_.vanguard().eclState(false).getInitConfig(); // this is hit
         int restartStepIdx = initconfig.getRestartStep();
 
         const auto& gridView = simulator_.vanguard().gridView();
@@ -565,10 +565,10 @@ private:
 
     Opm::NNC exportNncStructure_(const std::unordered_map<int,int>& cartesianToActive) const
     {
-        std::size_t nx = eclState(true).getInputGrid().getNX();
-        std::size_t ny = eclState(true).getInputGrid().getNY();
-        auto nncData = sortNncAndApplyEditnnc(eclState(true).getInputNNC().data(),
-                                              eclState(true).getInputEDITNNC().data());
+        std::size_t nx = eclState(false).getInputGrid().getNX();
+        std::size_t ny = eclState(false).getInputGrid().getNY();
+        auto nncData = sortNncAndApplyEditnnc(eclState(false).getInputNNC().data(),
+                                              eclState(false).getInputEDITNNC().data());
         const auto& unitSystem = simulator_.vanguard().deck().getActiveUnitSystem();
         std::vector<Opm::NNCdata> outputNnc;
         std::size_t index = 0;

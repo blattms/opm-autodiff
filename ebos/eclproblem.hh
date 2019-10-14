@@ -2247,7 +2247,7 @@ private:
     {
         const auto& vanguard = this->simulator().vanguard();
         const auto& deck = vanguard.deck();
-        const auto& eclState = vanguard.eclState(true);
+        const auto& eclState = vanguard.eclState(false); // this is hit
 
         if (!deck.hasKeyword("ROCKCOMP"))
             return; // deck does not enable rock compaction
@@ -2503,7 +2503,7 @@ private:
         // Set the start time of the simulation
         auto& simulator = this->simulator();
         const auto& schedule = simulator.vanguard().schedule();
-        const auto& eclState = simulator.vanguard().eclState(true);
+        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& timeMap = schedule.getTimeMap();
         const auto& initconfig = eclState.getInitConfig();
         int episodeIdx = initconfig.getRestartStep();
