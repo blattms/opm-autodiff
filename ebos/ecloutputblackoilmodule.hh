@@ -40,6 +40,10 @@
 #include <opm/output/eclipse/EclipseIO.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
 
+#if HAVE_MPI
+#include <opm/simulators/utils/ParallelRestart.hpp>
+#endif
+
 #include <dune/common/fvector.hh>
 
 #include <type_traits>
@@ -206,6 +210,42 @@ public:
                              "Do not print fluid-in-place values after each report step even if requested by the deck.");
     }
 
+    std::map<std::string, int> getRestartKeywords(int reportStepNum, bool& doRestart,
+                                                  const bool log)
+    {
+        std::map<std::string, int> rstKeywords;
+        if (isIORank_()) {
+            const Opm::RestartConfig& restartConfig = simulator_.vanguard().eclState(true).getRestartConfig();
+            doRestart = restartConfig.getWriteRestartFile(reportStepNum, log);
+            rstKeywords = restartConfig.getRestartKeywords(reportStepNum);
+            for (auto& keyValue: rstKeywords) {
+                keyValue.second = restartConfig.getKeyword(keyValue.first, reportStepNum);
+            }
+        }
+#if HAVE_MPI
+        auto& comm = simulator_.gridView().grid().comm();
+        comm.broadcast(&doRestart, 1, 0);
+
+        std::vector<char> buffer;
+        if (isIORank_()) {
+            size_t size = Mpi::packSize(rstKeywords, comm);
+            buffer.resize(size);
+            int pos = 0;
+            Mpi::pack(rstKeywords, buffer, pos, comm);
+            comm.broadcast(&pos, 1, 0);
+            comm.broadcast(buffer.data(), pos, 0);
+        } else {
+            int size;
+            comm.broadcast(&size, 1, 0);
+            buffer.resize(size);
+            comm.broadcast(buffer.data(), size, 0);
+            int pos = 0;
+            Mpi::unpack(rstKeywords, buffer, pos, comm);
+        }
+#endif
+        return rstKeywords;
+    }
+
     /*!
      * \brief Allocate memory for the scalar fields we would like to
      *        write to ECL output files
@@ -219,11 +259,8 @@ public:
         const Opm::SummaryConfig summaryConfig = simulator_.vanguard().summaryConfig();
 
         // Only output RESTART_AUXILIARY asked for by the user.
-        const Opm::RestartConfig& restartConfig = simulator_.vanguard().eclState(false).getRestartConfig(); // this is hit
-        std::map<std::string, int> rstKeywords = restartConfig.getRestartKeywords(reportStepNum);
-        for (auto& keyValue: rstKeywords) {
-            keyValue.second = restartConfig.getKeyword(keyValue.first, reportStepNum);
-        }
+        bool doRestart;
+        std::map<std::string, int> rstKeywords = this->getRestartKeywords(reportStepNum, doRestart, log);
 
         outputFipRestart_ = false;
         computeFip_ = false;
@@ -288,7 +325,7 @@ public:
         // 1) when we want to restart
         // 2) when it is ask for by the user via restartConfig
         // 3) when it is not a substep
-        if (!isRestart && (!restartConfig.getWriteRestartFile(reportStepNum, log) || substep))
+        if (!isRestart && (!doRestart || substep))
             return;
 
         // always output saturation of active phases

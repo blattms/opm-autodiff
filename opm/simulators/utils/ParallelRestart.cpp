@@ -212,6 +212,8 @@ std::size_t packSize(const std::map<T1,T2,C,A>& data, Dune::MPIHelper::MPICommun
     return totalSize;
 }
 
+template std::size_t packSize(const std::map<std::string,int>& data, Dune::MPIHelper::MPICommunicator comm);
+
 template<class T1, class T2, class H, class P, class A>
 std::size_t packSize(const std::unordered_map<T1,T2,H,P,A>& data, Dune::MPIHelper::MPICommunicator comm)
 {
@@ -1067,6 +1069,10 @@ void pack(const std::map<T1,T2,C,A>& data, std::vector<char>& buffer, int& posit
         pack(entry, buffer, position, comm);
     }
 }
+
+template void pack(const std::map<std::string,int>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
 
 template<class T1, class T2, class H, class P, class A>
 void pack(const std::unordered_map<T1,T2,H,P,A>& data, std::vector<char>& buffer, int& position,
@@ -1990,6 +1996,9 @@ void unpack(std::map<T1,T2,C,A>& data, std::vector<char>& buffer, int& position,
         data.insert(entry);
     }
 }
+
+template void unpack(std::map<std::string,int>& data, std::vector<char>& buffer,
+                     int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class T1, class T2, class H, class P, class A>
 void unpack(std::unordered_map<T1,T2,H,P,A>& data, std::vector<char>& buffer, int& position,
