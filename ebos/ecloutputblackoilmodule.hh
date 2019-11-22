@@ -199,6 +199,7 @@ public:
         }
 
         forceDisableFipOutput_ = EWOMS_GET_PARAM(TypeTag, bool, ForceDisableFluidInPlaceOutput);
+        units_ = this->getEclUnitsType();
     }
 
     /*!
@@ -1834,8 +1835,7 @@ private:
 
     void fipUnitConvert_(ScalarBuffer& fip)
     {
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
-        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
             fip[FipDataType::WaterInPlace] = Opm::unit::convert::to(fip[FipDataType::WaterInPlace], Opm::unit::stb);
             fip[FipDataType::OilInPlace] = Opm::unit::convert::to(fip[FipDataType::OilInPlace], Opm::unit::stb);
             fip[FipDataType::OilInPlaceInLiquidPhase] = Opm::unit::convert::to(fip[FipDataType::OilInPlaceInLiquidPhase], Opm::unit::stb);
@@ -1845,7 +1845,7 @@ private:
             fip[FipDataType::GasInPlaceInGasPhase] = Opm::unit::convert::to(fip[FipDataType::GasInPlaceInGasPhase], 1000*Opm::unit::cubic(Opm::unit::feet));
             fip[FipDataType::PoreVolume] = Opm::unit::convert::to(fip[FipDataType::PoreVolume], Opm::unit::stb);
         }
-        else if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
+        else if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
             Scalar scc = Opm::unit::cubic(Opm::prefix::centi * Opm::unit::meter); //standard cubic cm.
             fip[FipDataType::WaterInPlace] = Opm::unit::convert::to(fip[FipDataType::WaterInPlace], scc);
             fip[FipDataType::OilInPlace] = Opm::unit::convert::to(fip[FipDataType::OilInPlace], scc);
@@ -1856,7 +1856,7 @@ private:
             fip[FipDataType::GasInPlaceInGasPhase] = Opm::unit::convert::to(fip[FipDataType::GasInPlaceInGasPhase], scc);
             fip[FipDataType::PoreVolume] = Opm::unit::convert::to(fip[FipDataType::PoreVolume], scc);
         }
-        else if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+        else if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
             // nothing to do
         }
         else {
@@ -1866,14 +1866,13 @@ private:
 
     void pressureUnitConvert_(Scalar& pav)
     {
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
-        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
             pav = Opm::unit::convert::to(pav, Opm::unit::psia);
         }
-        else if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+        else if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
             pav = Opm::unit::convert::to(pav, Opm::unit::barsa);
         }
-        else if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
+        else if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
             pav = Opm::unit::convert::to(pav, Opm::unit::atm);
 
         }
@@ -1881,6 +1880,21 @@ private:
             throw std::runtime_error("Unsupported unit type for fluid in place output.");
         }
     }
+
+    Opm::UnitSystem::UnitType getEclUnitsType()
+    {
+        auto unitType = Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC;
+        if (isIORank_()) {
+            unitType = simulator_.vanguard().eclState(true).getUnits().getType();
+        }
+#if HAVE_MPI
+        int type = static_cast<int>(unitType);
+        simulator_.gridView().grid().comm().broadcast(&type, 1, 0);
+        unitType = static_cast<Opm::UnitSystem::UnitType>(type);
+#endif
+        return unitType;
+    }
+
 
     void outputRegionFluidInPlace_(const ScalarBuffer& oip, const ScalarBuffer& cip, const Scalar& pav, const int reg)
     {
@@ -1891,7 +1905,6 @@ private:
         if (cip[FipDataType::PoreVolume] == 0)
             return;
 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(true).getUnits();
         std::ostringstream ss;
         if (!reg) {
             ss << "                                                  ===================================================\n"
@@ -1902,7 +1915,7 @@ private:
                << "                                                  :        FIPNUM report region  "
                << std::setw(2) << reg << "                 :\n";
         }
-        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
             ss << "                                                  :      PAV  =" << std::setw(14) << pav << " BARSA                 :\n"
                << std::fixed << std::setprecision(0)
                << "                                                  :      PORV =" << std::setw(14) << cip[FipDataType::PoreVolume] << "   RM3                 :\n";
@@ -1912,7 +1925,7 @@ private:
             }
             ss << "                         :--------------- Oil    SM3 ---------------:-- Wat    SM3 --:--------------- Gas    SM3 ---------------:\n";
         }
-        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
             ss << "                                                  :      PAV  =" << std::setw(14) << pav << "  PSIA                 :\n"
                << std::fixed << std::setprecision(0)
                << "                                                  :      PORV =" << std::setw(14) << cip[FipDataType::PoreVolume] << "   RB                  :\n";
@@ -1935,22 +1948,21 @@ private:
     
     void outputProductionReport_(const ScalarBuffer& wellProd, const StringBuffer& wellProdNames, const bool forceDisableProdOutput)
     {
-                if(forceDisableProdOutput)
-                        return;
-                
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
+        if(forceDisableProdOutput)
+            return;
+
         std::ostringstream ss;
         if (wellProdNames[WellProdDataType::WellName].empty()) {
             ss << "======================================================= PRODUCTION REPORT =======================================================\n"//=================== \n"
                << ":  WELL  :  LOCATION :CTRL:    OIL    :   WATER   :    GAS    :   FLUID   :   WATER   : GAS/OIL  :  WAT/GAS   : BHP OR : THP OR :\n"// STEADY-ST PI       :\n"
                << ":  NAME  :  (I,J,K)  :MODE:    RATE   :   RATE    :    RATE   :  RES.VOL. :    CUT    :  RATIO   :   RATIO    : CON.PR.: BLK.PR.:\n";// OR POTN OF PREF. PH:\n";
-            if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+            if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
                             ss << ":        :           :    :  SCM/DAY  :  SCM/DAY  :  SCM/DAY  :  RCM/DAY  :  SCM/SCM  :  SCM/SCM :  SCM/SCM   :  BARSA :  BARSA :\n";//                    :\n";
                         }
-                        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+                        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
                             ss << ":        :           :    :  STB/DAY  :  STB/DAY  :  MSCF/DAY :  RB/DAY   :           : MSCF/STB :  STB/MSCF  :  PSIA  :  PSIA  :\n";//                    :\n"; 
                         }
-                    if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
+                    if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
                                 ss << ":        :           :    :  SCC/HR   :  SCC/HR   :  SCC/HR   :    RCC    :  SCC/SCC  :  SCC/SCC :  SCC/SCC   :  ATMA  :  ATMA  :\n";//                    :\n"; 
                         }
                 ss << "=================================================================================================================================\n";//=================== \n";
@@ -1969,22 +1981,21 @@ private:
 
     void outputInjectionReport_(const ScalarBuffer& wellInj, const StringBuffer& wellInjNames, const bool forceDisableInjOutput)
     {
-                if(forceDisableInjOutput)
-                        return;
+        if(forceDisableInjOutput)
+            return;
                 
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
         std::ostringstream ss;
         if (wellInjNames[WellInjDataType::WellName].empty()) {
             ss << "=================================================== INJECTION REPORT ========================================\n"//===================== \n"
                << ":  WELL  :  LOCATION : CTRL : CTRL : CTRL :    OIL    :   WATER   :    GAS    :   FLUID   : BHP OR : THP OR :\n"// STEADY-ST II       :\n"
                << ":  NAME  :  (I,J,K)  : MODE : MODE : MODE :    RATE   :   RATE    :    RATE   :  RES.VOL. : CON.PR.: BLK.PR.:\n";// OR POTENTIAL       :\n";
-            if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+            if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
                                 ss << ":        :           : OIL  : WAT  : GAS  :  SCM/DAY  :  SCM/DAY  :  SCM/DAY  :  RCM/DAY  :  BARSA :  BARSA :\n";//                    :\n";
                         }
-                        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+                        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
                                 ss << ":        :           : OIL  : WAT  : GAS  :  STB/DAY  :  STB/DAY  :  MSCF/DAY :  RB/DAY   :  PSIA  :  PSIA  :\n";//                    :\n"; 
                         }
-                        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
+                        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
                                 ss << ":        :           : OIL  : WAT  : GAS  :   SCC/HR  :  SCC/HR   :  SCC/HR   :  RCC/HR   :  ATMA  :  ATMA  :\n";//                    :\n"; 
                         }
                 ss << "==============================================================================================================\n";//===================== \n";
@@ -2003,22 +2014,21 @@ private:
         
         void outputCumulativeReport_(const ScalarBuffer& wellCum, const StringBuffer& wellCumNames, const bool forceDisableCumOutput)
     {
-                if(forceDisableCumOutput)
-                        return;
-                
-        const Opm::UnitSystem& units = simulator_.vanguard().eclState(false).getUnits(); // this is hit
+        if(forceDisableCumOutput)
+            return;
+
         std::ostringstream ss;
         if (wellCumNames[WellCumDataType::WellName].empty()) {
             ss << "=================================================== CUMULATIVE PRODUCTION/INJECTION REPORT =========================================\n"
                << ":  WELL  :  LOCATION :  WELL  :CTRL:    OIL    :   WATER   :    GAS    :   Prod    :    OIL    :   WATER   :    GAS    :   INJ     :\n"
                << ":  NAME  :  (I,J,K)  :  TYPE  :MODE:    PROD   :   PROD    :    PROD   :  RES.VOL. :    INJ    :   INJ     :    INJ    :  RES.VOL. :\n";
-            if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
+            if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_METRIC) {
                                 ss << ":        :           :        :    :    MSCM   :   MSCM    :    MMSCM  :   MRCM    :    MSCM   :   MSCM    :    MMSCM  :   MRCM    :\n";
                         }
-                        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
+                        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_FIELD) {
                                 ss << ":        :           :        :    :    MSTB   :   MSTB    :    MMSCF  :   MRB     :    MSTB   :   MSTB    :    MMSCF  :   MRB     :\n"; 
                         }
-                        if (units.getType() == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
+                        if (units_ == Opm::UnitSystem::UnitType::UNIT_TYPE_LAB) {
                                 ss << ":        :           :        :    :     MSCC  :   MSCC    :    MMSCC  :   MRCC    :    MSCC   :   MSCC    :    MMSCC  :   MRCC    :\n"; 
                         }
                 ss << "====================================================================================================================================\n"; 
@@ -2167,6 +2177,7 @@ private:
     std::map<size_t, Scalar> waterConnectionSaturations_;
     std::map<size_t, Scalar> gasConnectionSaturations_;
     std::vector<ScalarBuffer> tracerConcentrations_;
+    Opm::UnitSystem::UnitType units_;
 };
 } // namespace Opm
 
