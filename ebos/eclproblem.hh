@@ -2503,10 +2503,14 @@ private:
         // Set the start time of the simulation
         auto& simulator = this->simulator();
         const auto& schedule = simulator.vanguard().schedule();
-        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& timeMap = schedule.getTimeMap();
-        const auto& initconfig = eclState.getInitConfig();
-        int episodeIdx = initconfig.getRestartStep();
+        int episodeIdx;
+        if (simulator.gridView().comm().rank() == 0) {
+            const auto& eclState = simulator.vanguard().eclState(true);
+            const auto& initconfig = eclState.getInitConfig();
+            episodeIdx = initconfig.getRestartStep();
+        }
+        simulator.gridView().comm().broadcast(&episodeIdx, 1, 0);
 
         simulator.setStartTime(timeMap.getStartTime(/*timeStepIdx=*/0));
         simulator.setTime(timeMap.getTimePassedUntil(episodeIdx));
