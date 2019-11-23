@@ -38,6 +38,8 @@
 #include <opm/parser/eclipse/EclipseState/Grid/TransMult.hpp>
 #include <opm/parser/eclipse/Units/Units.hpp>
 
+#include <opm/simulators/utils/ParallelRestart.hpp>
+
 
 #include <opm/grid/CpGrid.hpp>
 
@@ -117,7 +119,7 @@ public:
      * either but at least it seems to be much better.
      */
     void finishInit()
-    { update(); }
+    { update(true); }
 
 
     /*!
@@ -125,7 +127,7 @@ public:
      *
      * Also, this updates the "thermal half transmissibilities" if energy is enabled.
      */
-    void update()
+    void update(bool global)
     {
         const auto& gridView = vanguard_.gridView();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
@@ -392,8 +394,8 @@ public:
             int cartElemIdx = vanguard_.cartesianIndexMapper().cartesianIndex(elemIdx);
             globalToLocal[cartElemIdx] = elemIdx;
         }
-        applyEditNncToGridTrans_(globalToLocal);
-        applyNncToGridTrans_(globalToLocal);
+        applyEditNncToGridTrans_(globalToLocal, global);
+        applyNncToGridTrans_(globalToLocal, global);
 
         //remove very small non-neighbouring transmissibilities
         removeSmallNonCartesianTransmissibilities_();
@@ -598,6 +600,47 @@ private:
         faceAreaNormal = vanguard_.grid().faceAreaNormalEcl(faceIdx);
     }
 
+    template<typename NNC, typename MPIHelper>
+    NNC sendRecvNNC(const NNC& input, MPIHelper comm)
+    {
+        if (comm.rank() == 0) {
+            return Mpi::packAndSend(input, comm);
+        } else {
+            NNC result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
+    EDITNNC getInputEDITNNC(bool global)
+    {
+        if (!global)
+            return vanguard_.eclState(true).getInputEDITNNC();
+
+        const auto& comm = vanguard_.grid().comm();
+        if (comm.rank() == 0) {
+            return this->sendRecvNNC(vanguard_.eclState(true).getInputEDITNNC(),comm);
+        } else {
+          EDITNNC result;
+          return this->sendRecvNNC(result, comm);
+        }
+    }
+
+    NNC getInputNNC(bool global)
+    {
+        if (!global)
+            return vanguard_.eclState(true).getInputNNC();
+
+        const auto& comm = vanguard_.grid().comm();
+        if (comm.rank() == 0) {
+            return this->sendRecvNNC(vanguard_.eclState(true).getInputNNC(), comm);
+        } else {
+            NNC result;
+            return this->sendRecvNNC(result, comm);
+        }
+    }
+
+
     /*
      * \brief Applies additional transmissibilities specified via NNC keyword.
      *
@@ -612,17 +655,19 @@ private:
      *         and the second the NNCs not resembled by faces of the grid. NNCs specified for
      *         inactive cells are omitted in these vectors.
      */
+
     std::tuple<std::vector<Opm::NNCdata>, std::vector<Opm::NNCdata> >
-    applyNncToGridTrans_(const std::vector<int>& cartesianToCompressed)
+    applyNncToGridTrans_(const std::vector<int>& cartesianToCompressed, bool global)
     {
         // First scale NNCs with EDITNNC.
         std::vector<Opm::NNCdata> unprocessedNnc;
         std::vector<Opm::NNCdata> processedNnc;
-        const auto& nnc = vanguard_.eclState(false).getInputNNC(); // this is hit
+        const auto& nnc = this->getInputNNC(global);
         if (!nnc.hasNNC())
             return make_tuple(processedNnc, unprocessedNnc);
 
-        auto nncData = sortNncAndApplyEditnnc(nnc.data(), vanguard_.eclState(false).getInputEDITNNC().data());
+        auto editNNC = this->getInputEDITNNC(global);
+        auto nncData = sortNncAndApplyEditnnc(nnc.data(), editNNC.data());
 
         for (const auto& nncEntry : nncData) {
             auto c1 = nncEntry.cell1;
@@ -664,9 +709,9 @@ private:
     }
 
     /// \brief Multiplies the grid transmissibilities according to EDITNNC.
-    void applyEditNncToGridTrans_(const std::vector<int>& globalToLocal)
+    void applyEditNncToGridTrans_(const std::vector<int>& globalToLocal, bool global)
     {
-        const auto& editNnc = vanguard_.eclState(false).getInputEDITNNC(); // this is hit
+        const auto& editNnc = this->getInputEDITNNC(global);
         if (editNnc.empty())
             return;
 
