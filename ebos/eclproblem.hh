@@ -2505,12 +2505,16 @@ private:
         const auto& schedule = simulator.vanguard().schedule();
         const auto& timeMap = schedule.getTimeMap();
         int episodeIdx;
-        if (simulator.gridView().comm().rank() == 0) {
+        const auto& comm = simulator.gridView().comm();
+        int hasInit;
+        if (comm.rank() == 0) {
             const auto& eclState = simulator.vanguard().eclState(true);
             const auto& initconfig = eclState.getInitConfig();
             episodeIdx = initconfig.getRestartStep();
+            hasInit = eclState.get3DProperties().hasDeckDoubleGridProperty("SWATINIT") ? 1 : 0;
         }
         simulator.gridView().comm().broadcast(&episodeIdx, 1, 0);
+        comm.broadcast(&hasInit, 1, 0);
 
         simulator.setStartTime(timeMap.getStartTime(/*timeStepIdx=*/0));
         simulator.setTime(timeMap.getTimePassedUntil(episodeIdx));
@@ -2543,7 +2547,8 @@ private:
         for (size_t elemIdx = 0; elemIdx < numElems; ++elemIdx) {
             auto& elemFluidState = initialFluidStates_[elemIdx];
             elemFluidState.setPvtRegionIndex(pvtRegionIndex(elemIdx));
-            eclWriter_->eclOutputModule().initHysteresisParams(simulator, elemIdx);
+            eclWriter_->eclOutputModule().initHysteresisParams(simulator,
+                                                               elemIdx, hasInit == 1);
             eclWriter_->eclOutputModule().assignToFluidState(elemFluidState, elemIdx);
 
             if (enableSolvent)
