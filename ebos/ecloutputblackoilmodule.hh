@@ -1610,7 +1610,7 @@ public:
            fs.setRv(rv_[elemIdx]);
     }
 
-    void initHysteresisParams(Simulator& simulator, unsigned elemIdx) const
+    void initHysteresisParams(Simulator& simulator, unsigned elemIdx, bool hasInit) const
     {
         if (soMax_.size() > 0)
             simulator.problem().setMaxOilSaturation(elemIdx, soMax_[elemIdx]);
@@ -1632,7 +1632,7 @@ public:
             }
         }
 
-        if (simulator_.vanguard().eclState(false).get3DProperties().hasDeckDoubleGridProperty("SWATINIT")) { // this is hit
+        if (hasInit) {
             auto oilWaterScaledEpsInfoDrainage = simulator.problem().materialLawManager()->oilWaterScaledEpsInfoDrainagePointerReferenceHack(elemIdx);
             oilWaterScaledEpsInfoDrainage->maxPcow =  ppcw_[elemIdx];
         }
