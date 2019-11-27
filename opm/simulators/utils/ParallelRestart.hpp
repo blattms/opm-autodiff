@@ -69,10 +69,10 @@ std::size_t packSize(const char* str, Dune::MPIHelper::MPICommunicator comm);
 std::size_t packSize(const std::string& str, Dune::MPIHelper::MPICommunicator comm);
 
 template<class T1, class T2>
-std::size_t packSize(const std::map<T1,T2> data, Dune::MPIHelper::MPICommunicator comm);
+std::size_t packSize(const std::map<T1,T2>& data, Dune::MPIHelper::MPICommunicator comm);
 
 template<class T1, class T2>
-std::size_t packSize(const std::unordered_map<T1,T2> data, Dune::MPIHelper::MPICommunicator comm);
+std::size_t packSize(const std::unordered_map<T1,T2>& data, Dune::MPIHelper::MPICommunicator comm);
 
 std::size_t packSize(const data::Rates& data, Dune::MPIHelper::MPICommunicator comm);
 
