@@ -35,6 +35,9 @@
 
 namespace Opm
 {
+
+class ThresholdPressure;
+
 namespace Mpi
 {
 template<class T>
@@ -197,6 +200,7 @@ ADD_PACK_PROTOTYPES(data::WellRates)
 ADD_PACK_PROTOTYPES(RestartKey)
 ADD_PACK_PROTOTYPES(RestartValue)
 ADD_PACK_PROTOTYPES(std::string)
+ADD_PACK_PROTOTYPES(ThresholdPressure)
 
 template<class T>
 const T& packAndSend(const T& in, const auto& comm)
