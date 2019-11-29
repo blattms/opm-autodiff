@@ -28,6 +28,7 @@
 #include <opm/parser/eclipse/EclipseState/Edit/EDITNNC.hpp>
 #include <opm/parser/eclipse/EclipseState/Grid/NNC.hpp>
 #include <opm/parser/eclipse/EclipseState/InitConfig/Equil.hpp>
+#include <opm/parser/eclipse/EclipseState/InitConfig/FoamConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/ColumnSchema.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Rock2dTable.hpp>
@@ -153,6 +154,12 @@ Opm::SimpleTable getSimpleTable()
 Opm::EquilRecord getEquilRecord()
 {
     return Opm::EquilRecord(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, true, false, 1);
+}
+
+
+Opm::FoamData getFoamData()
+{
+    return Opm::FoamData(1.0, 2.0, 3.0, true, 4.0);
 }
 
 
@@ -415,6 +422,17 @@ BOOST_AUTO_TEST_CASE(Equil)
 {
 #if HAVE_MPI
     Opm::Equil val1({getEquilRecord(), getEquilRecord()});
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
+BOOST_AUTO_TEST_CASE(FoamData)
+{
+#if HAVE_MPI
+    Opm::FoamData val1 = getFoamData();
     auto val2 = PackUnpack(val1);
     BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
     BOOST_CHECK(val1 == std::get<0>(val2));
