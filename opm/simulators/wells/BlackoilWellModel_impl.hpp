@@ -519,6 +519,24 @@ namespace Opm {
         return nullptr;
     }
 
+
+    template<typename TypeTag>
+    InitConfig
+    BlackoilWellModel<TypeTag>::getInitConfig()
+    {
+        const auto& comm = ebosSimulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& initcfg = eclState(true).getInitConfig();
+            return Mpi::packAndSend(initcfg, comm);
+        } else {
+            InitConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
+
+
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
@@ -528,7 +546,7 @@ namespace Opm {
         // time step. Wells that are added at the same time step as RESTART is initiated
         // will not be present in a restart file. Use the previous time step to retrieve
         // wells that have information written to the restart file.
-        const int report_step = std::max(eclState(false).getInitConfig().getRestartStep() - 1, 0); // this is hit
+        const int report_step = std::max(this->getInitConfig().getRestartStep() - 1, 0);
         const auto& summaryState = ebosSimulator_.vanguard().summaryState();
 
         // Make wells_ecl_ contain only this partition's non-shut wells.

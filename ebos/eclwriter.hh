@@ -399,6 +399,19 @@ public:
         }
     }
 
+    InitConfig getInitConfig()
+    {
+        const auto& comm = simulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& initconfig = simulator_.vanguard().eclState(true).getInitConfig();
+            return Mpi::packAndSend(initconfig, comm);
+        } else {
+            InitConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     void beginRestart()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
@@ -427,7 +440,7 @@ public:
         // and can not be used here.
         // We just ask the initconfig directly to be sure that we use the correct
         // index.
-        const auto& initconfig = simulator_.vanguard().eclState(false).getInitConfig(); // this is hit
+        const auto& initconfig = this->getInitConfig();
         int restartStepIdx = initconfig.getRestartStep();
 
         const auto& gridView = simulator_.vanguard().gridView();
