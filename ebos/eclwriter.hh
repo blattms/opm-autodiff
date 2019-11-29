@@ -412,6 +412,19 @@ public:
         }
     }
 
+    SimulationConfig getSimulationConfig()
+    {
+        const auto& comm = simulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& simcfg = eclState(true).getSimulationConfig();
+            return Mpi::packAndSend(simcfg, comm);
+        } else {
+            SimulationConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     void beginRestart()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
@@ -432,7 +445,7 @@ public:
             {"PPCW", Opm::UnitSystem::measure::pressure, enableSwatinit}
         };
 
-        const auto& inputThpres = eclState(false).getSimulationConfig().getThresholdPressure(); // this is hit
+        const auto& inputThpres = this->getSimulationConfig().getThresholdPressure();
         std::vector<Opm::RestartKey> extraKeys = {{"OPMEXTRA", Opm::UnitSystem::measure::identity, false},
                                                   {"THRESHPR", Opm::UnitSystem::measure::pressure, inputThpres.active()}};
 
