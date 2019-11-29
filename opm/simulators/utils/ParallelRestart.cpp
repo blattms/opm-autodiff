@@ -133,6 +133,12 @@ std::size_t packSize(const std::vector<bool,A>& data, Dune::MPIHelper::MPICommun
     return packSize(data.size(), comm) + data.size()*packSize(entry,comm);
 }
 
+template<class Key, class Value>
+std::size_t packSize(const OrderedMap<Key,Value>& data, Dune::MPIHelper::MPICommunicator comm)
+{
+  return packSize(data.getIndex(), comm) + packSize(data.getStorage(), comm);
+}
+
 std::size_t packSize(const char* str, Dune::MPIHelper::MPICommunicator comm)
 {
 #if HAVE_MPI
@@ -347,6 +353,14 @@ void pack(const std::vector<bool,A>& data, std::vector<char>& buffer, int& posit
         bool b = entry;
         pack(b, buffer, position, comm);
     }
+}
+
+template<class Key, class Value>
+void pack(const OrderedMap<Key, Value>& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.getIndex(), buffer, position, comm);
+    pack(data.getStorage(), buffer, position, comm);
 }
 
 void pack(const char* str, std::vector<char>& buffer, int& position,
@@ -586,6 +600,17 @@ void unpack(std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
         unpack(entry, buffer, position, comm);
         data.push_back(entry);
     }
+}
+
+template<class Key, class Value>
+void unpack(OrderedMap<Key,Value>& data, std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+  typename OrderedMap<Key,Value>::index_type index;
+  typename OrderedMap<Key,Value>::storage_type storage;
+  unpack(index, buffer, position, comm);
+  unpack(storage, buffer, position, comm);
+  data = OrderedMap<Key,Value>(index, storage);
 }
 
 void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& position,
