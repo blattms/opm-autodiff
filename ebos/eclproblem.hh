@@ -630,6 +630,19 @@ public:
         maxFails_ = EWOMS_GET_PARAM(TypeTag, unsigned, MaxTimeStepDivisions);
     }
 
+    InitConfig getInitConfig()
+    {
+        const auto& comm = this->simulator().gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& initconfig = this->simulator().vanguard().eclState(true).getInitConfig();
+            return Mpi::packAndSend(initconfig, comm);
+        } else {
+            InitConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     /*!
      * \copydoc FvBaseProblem::finishInit
      */
@@ -694,7 +707,7 @@ public:
         readThermalParameters_();
         transmissibilities_.finishInit();
 
-        const auto& initconfig = eclState.getInitConfig();
+        const auto& initconfig = this->getInitConfig();
         if (initconfig.restartRequested())
             readEclRestartSolution_();
         else
