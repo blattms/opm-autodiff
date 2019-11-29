@@ -28,6 +28,7 @@
 #include <opm/parser/eclipse/EclipseState/Tables/ColumnSchema.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Rock2dTable.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Rock2dtrTable.hpp>
+#include <opm/parser/eclipse/EclipseState/Tables/TableColumn.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/TableSchema.hpp>
 #include <dune/common/parallel/mpitraits.hh>
 
@@ -272,6 +273,15 @@ std::size_t packSize(const ColumnSchema& data, Dune::MPIHelper::MPICommunicator 
 std::size_t packSize(const TableSchema& data, Dune::MPIHelper::MPICommunicator comm)
 {
    return packSize(data.getColumns(), comm);
+}
+
+std::size_t packSize(const TableColumn& data, Dune::MPIHelper::MPICommunicator comm)
+{
+   return packSize(data.schema(), comm) +
+          packSize(data.name(), comm) +
+          packSize(data.values(), comm) +
+          packSize(data.defaults(), comm) +
+          packSize(data.defaultCount(), comm);
 }
 
 ////// pack routines
@@ -532,6 +542,16 @@ void pack(const TableSchema& data, std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm)
 {
     pack(data.getColumns(), buffer, position, comm);
+}
+
+void pack(const TableColumn& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.schema(), buffer, position, comm);
+    pack(data.name(), buffer, position, comm);
+    pack(data.values(), buffer, position, comm);
+    pack(data.defaults(), buffer, position, comm);
+    pack(data.defaultCount(), buffer, position, comm);
 }
 
 /// unpack routines
@@ -830,6 +850,22 @@ void unpack(TableSchema& data, std::vector<char>& buffer, int& position,
     OrderedMap<std::string, ColumnSchema> columns;
     unpack(columns, buffer, position, comm);
     data = TableSchema(columns);
+}
+
+void unpack(TableColumn& data, std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    ColumnSchema schema;
+    std::string name;
+    std::vector<double> values;
+    std::vector<bool> defaults;
+    size_t defaultCount;
+    unpack(schema, buffer, position, comm);
+    unpack(name, buffer, position, comm);
+    unpack(values, buffer, position, comm);
+    unpack(defaults, buffer, position, comm);
+    unpack(defaultCount, buffer, position, comm);
+    data = TableColumn(schema, name, values, defaults, defaultCount);
 }
 
 } // end namespace Mpi
