@@ -285,6 +285,20 @@ private:
             thpresDefault_[i] = gridView.comm().max(thpresDefault_[i]);
     }
 
+    SimulationConfig getSimulationConfig()
+    {
+        const auto& comm = simulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& eclState = simulator_.vanguard().eclState(true);
+            const auto& simcfg = eclState.getSimulationConfig();
+            return Mpi::packAndSend(simcfg, comm);
+        } else {
+            SimulationConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     // internalize the threshold pressures which where explicitly specified via the
     // THPRES keyword.
     void applyExplicitThresholdPressures_()
@@ -292,10 +306,9 @@ private:
         const auto& vanguard = simulator_.vanguard();
         const auto& gridView = vanguard.gridView();
         const auto& elementMapper = simulator_.model().elementMapper();
-        const auto& eclState = simulator_.vanguard().eclState(false); // this is hit
         const auto& deck = simulator_.vanguard().deck();
-        const Opm::SimulationConfig& simConfig = eclState.getSimulationConfig();
-        const auto& thpres = simConfig.getThresholdPressure();
+        const auto simcfg = this->getSimulationConfig();
+        const auto& thpres = simcfg.getThresholdPressure();
 
         // set the threshold pressures for all EQUIL region boundaries which have a
         // intersection in the grid
