@@ -37,6 +37,7 @@
 namespace Opm
 {
 
+class ColumnSchema;
 class EDITNNC;
 class NNC;
 struct NNCdata;
@@ -207,6 +208,7 @@ void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& posit
   void unpack(T& data, std::vector<char>& buffer, int& position, \
               Dune::MPIHelper::MPICommunicator comm);
 
+ADD_PACK_PROTOTYPES(ColumnSchema)
 ADD_PACK_PROTOTYPES(data::CellData)
 ADD_PACK_PROTOTYPES(data::Connection)
 ADD_PACK_PROTOTYPES(data::Rates)
