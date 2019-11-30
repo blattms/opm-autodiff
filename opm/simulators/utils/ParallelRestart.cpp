@@ -105,6 +105,13 @@ std::size_t packSize(const std::vector<T,A>& data, Dune::MPIHelper::MPICommunica
     return size;
 }
 
+template<class A>
+std::size_t packSize(const std::vector<bool,A>& data, Dune::MPIHelper::MPICommunicator comm)
+{
+    bool entry;
+    return packSize(data.size(), comm) + data.size()*packSize(entry,comm);
+}
+
 std::size_t packSize(const char* str, Dune::MPIHelper::MPICommunicator comm)
 {
 #if HAVE_MPI
@@ -292,6 +299,17 @@ void pack(const std::vector<T, A>& data, std::vector<char>& buffer, int& positio
 
     for (const auto& entry: data)
         pack(entry, buffer, position, comm);
+}
+
+template<class A>
+void pack(const std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.size(), buffer, position, comm);
+    for (const auto& entry : data) {
+        bool b = entry;
+        pack(b, buffer, position, comm);
+    }
 }
 
 void pack(const char* str, std::vector<char>& buffer, int& position,
@@ -502,6 +520,21 @@ void unpack(std::vector<T,A>& data, std::vector<char>& buffer, int& position,
 
     for (auto& entry: data)
         unpack(entry, buffer, position, comm);
+}
+
+template<class A>
+void unpack(std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    size_t size;
+    unpack(size, buffer, position, comm);
+    data.clear();
+    data.reserve(size);
+    for (size_t i = 0; i < size; ++i) {
+        bool entry;
+        unpack(entry, buffer, position, comm);
+        data.push_back(entry);
+    }
 }
 
 void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& position,
