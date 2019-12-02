@@ -643,6 +643,19 @@ public:
         }
     }
 
+    Runspec getRunspec()
+    {
+        const auto& comm = this->simulator().gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& rspec = this->simulator().vanguard().eclState(true).runspec();
+            return Mpi::packAndSend(rspec, comm);
+        } else {
+            Runspec result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     /*!
      * \copydoc FvBaseProblem::finishInit
      */
@@ -651,7 +664,6 @@ public:
         ParentType::finishInit();
 
         auto& simulator = this->simulator();
-        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
         const auto& schedule = simulator.vanguard().schedule();
         const auto& timeMap = schedule.getTimeMap();
 
@@ -690,7 +702,7 @@ public:
         initFluidSystem_();
 
         // deal with DRSDT
-        unsigned ntpvt = eclState.runspec().tabdims().getNumPVTTables();
+        unsigned ntpvt = this->getRunspec().tabdims().getNumPVTTables();
         size_t numDof = this->model().numGridDof();
         if (FluidSystem::phaseIsActive(FluidSystem::oilPhaseIdx)) {
             maxDRs_.resize(ntpvt, 1e30);
