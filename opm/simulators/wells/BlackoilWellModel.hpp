@@ -391,6 +391,7 @@ namespace Opm {
             void setWsolvent(const Group& group, const Schedule& schedule, const int reportStepIdx, double wsolvent);
 
             InitConfig getInitConfig();
+            IOConfig getIOConfig();
 
         };
 

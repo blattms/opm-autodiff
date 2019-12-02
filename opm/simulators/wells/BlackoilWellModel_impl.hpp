@@ -538,6 +538,23 @@ namespace Opm {
 
 
     template<typename TypeTag>
+    IOConfig
+    BlackoilWellModel<TypeTag>::getIOConfig()
+    {
+        const auto& comm = ebosSimulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& iocfg = eclState(true).getIOConfig();
+            return Mpi::packAndSend(iocfg, comm);
+        } else {
+            IOConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
+
+
+    template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
     initFromRestartFile(const RestartValue& restartValues)
@@ -572,7 +589,7 @@ namespace Opm {
         }
 
         // for ecl compatible restart the current controls are not written
-        const auto& ioCfg = eclState(false).getIOConfig(); // this is hit
+        const auto& ioCfg = this->getIOConfig();
         const auto ecl_compatible_rst = ioCfg.getEclCompatibleRST();        
         if (true || ecl_compatible_rst) { // always set the control from the schedule
             for (int w = 0; w <nw; ++w) {
