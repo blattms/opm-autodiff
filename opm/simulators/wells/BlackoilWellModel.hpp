@@ -392,6 +392,7 @@ namespace Opm {
 
             InitConfig getInitConfig();
             IOConfig getIOConfig();
+            Runspec getRunspec();
 
         };
 

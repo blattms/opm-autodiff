@@ -54,16 +54,28 @@ namespace Opm {
     }
 
     template<typename TypeTag>
+    Runspec BlackoilWellModel<TypeTag>::getRunspec()
+    {
+        const auto& comm = ebosSimulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& rspec = eclState(true).runspec();
+            return Mpi::packAndSend(rspec, comm);
+        } else {
+            Runspec result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
+    template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
     init()
     {
-        const Opm::EclipseState& eclState = ebosSimulator_.vanguard().eclState(false); // this is hit
-
         extractLegacyCellPvtRegionIndex_();
         extractLegacyDepth_();
 
-        phase_usage_ = phaseUsageFromDeck(eclState);
+        phase_usage_ = phaseUsage(this->getRunspec().phases());
 
         gravity_ = ebosSimulator_.problem().gravity()[2];
 
@@ -580,12 +592,12 @@ namespace Opm {
         initializeWellPerfData();
 
         const int nw = wells_ecl_.size();
+        const auto phase_Usage = phaseUsage(this->getRunspec().phases()); // need to do this on all processes even if no wells are active to avoid deadlock.
         if (nw > 0) {
-            const auto phaseUsage = phaseUsageFromDeck(eclState(false)); // this is hit
             const size_t numCells = Opm::UgGridHelpers::numCells(grid());
             const bool handle_ms_well = (param_.use_multisegment_well_ && anyMSWellOpenLocal());
-            well_state_.resize(wells_ecl_, schedule(), handle_ms_well, numCells, phaseUsage, well_perf_data_, summaryState); // Resize for restart step
-            wellsToState(restartValues.wells, phaseUsage, handle_ms_well, well_state_);
+            well_state_.resize(wells_ecl_, schedule(), handle_ms_well, numCells, phase_Usage, well_perf_data_, summaryState); // Resize for restart step
+            wellsToState(restartValues.wells, phase_Usage, handle_ms_well, well_state_);
         }
 
         // for ecl compatible restart the current controls are not written
