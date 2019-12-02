@@ -37,6 +37,8 @@
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/ColumnSchema.hpp>
+#include <opm/parser/eclipse/EclipseState/Tables/PvtgTable.hpp>
+#include <opm/parser/eclipse/EclipseState/Tables/PvtoTable.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Rock2dTable.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Rock2dtrTable.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/SimpleTable.hpp>
@@ -175,6 +177,29 @@ Opm::TimeMap getTimeMap()
     return Opm::TimeMap({123},
                         {{1, Opm::TimeStampUTC(123)}},
                         {{2, Opm::TimeStampUTC(456)}});
+}
+
+Opm::PvtgTable getPvtgTable()
+{
+    return Opm::PvtgTable(Opm::ColumnSchema("test1", Opm::Table::INCREASING,
+                                            Opm::Table::DEFAULT_LINEAR),
+                          getTableColumn(),
+                          getTableSchema(),
+                          getTableSchema(),
+                          {getSimpleTable()},
+                          getSimpleTable());
+}
+
+
+Opm::PvtoTable getPvtoTable()
+{
+    return Opm::PvtoTable(Opm::ColumnSchema("test1", Opm::Table::INCREASING,
+                                            Opm::Table::DEFAULT_LINEAR),
+                          getTableColumn(),
+                          getTableSchema(),
+                          getTableSchema(),
+                          {getSimpleTable()},
+                          getSimpleTable());
 }
 
 
@@ -648,6 +673,28 @@ BOOST_AUTO_TEST_CASE(Runspec)
                       Opm::EclHysterConfig(true, 1, 2),
                       Opm::Actdims(1,2,3,4));
 
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
+BOOST_AUTO_TEST_CASE(PvtgTable)
+{
+#if HAVE_MPI
+    Opm::PvtgTable val1 = getPvtgTable();
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
+BOOST_AUTO_TEST_CASE(PvtoTable)
+{
+#if HAVE_MPI
+    Opm::PvtoTable val1 = getPvtoTable();
     auto val2 = PackUnpack(val1);
     BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
     BOOST_CHECK(val1 == std::get<0>(val2));
