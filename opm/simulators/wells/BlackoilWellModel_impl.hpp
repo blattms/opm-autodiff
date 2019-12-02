@@ -564,6 +564,21 @@ namespace Opm {
         }
     }
 
+    template<typename TypeTag>
+    RestartConfig
+    BlackoilWellModel<TypeTag>::getRestartConfig()
+    {
+        const auto& comm = ebosSimulator_.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& rcfg = eclState(true).getRestartConfig();
+            return Mpi::packAndSend(rcfg, comm);
+        } else {
+            RestartConfig result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
 
 
     template<typename TypeTag>
@@ -1251,7 +1266,7 @@ namespace Opm {
         computeAverageFormationFactor(B_avg);
 
         const Opm::SummaryConfig& summaryConfig = ebosSimulator_.vanguard().summaryConfig();
-        const bool write_restart_file = ebosSimulator_.vanguard().eclState(false).getRestartConfig().getWriteRestartFile(reportStepIdx); // this is hit
+        const bool write_restart_file = this->getRestartConfig().getWriteRestartFile(reportStepIdx); // this is hit
         int exception_thrown = 0;
         try {
             for (const auto& well : well_container_) {
