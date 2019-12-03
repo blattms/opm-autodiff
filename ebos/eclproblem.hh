@@ -2214,7 +2214,8 @@ private:
         }
 
         // Store overburden pressure pr element
-        const auto& overburdTables = eclState.getTableManager().getOverburdTables();
+        TableManager tableManager = this->getTableManager();
+        const auto& overburdTables = tableManager.getOverburdTables();
         if (!overburdTables.empty()) {
             unsigned numElem = vanguard.gridView().size(0);
             overburdenPressure_.resize(numElem,0.0);
@@ -2243,11 +2244,24 @@ private:
 
     }
 
+    TableManager getTableManager()
+    {
+        const auto& comm = this->simulator().gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& eclState = this->simulator().vanguard().eclState(true);
+            const auto& tableManager = eclState.getTableManager();
+            return Mpi::packAndSend(tableManager, comm);
+        } else {
+            TableManager result;
+            Mpi::receiveAndUnpack(result, comm);
+            return result;
+        }
+    }
+
     void readRockCompactionParameters_()
     {
         const auto& vanguard = this->simulator().vanguard();
         const auto& deck = vanguard.deck();
-        const auto& eclState = vanguard.eclState(false); // this is hit
 
         if (!deck.hasKeyword("ROCKCOMP"))
             return; // deck does not enable rock compaction
@@ -2284,9 +2298,10 @@ private:
             throw std::runtime_error("ROCKCOMP option " + waterCompactionItem + " not supported for item 3. Only YES is supported");
 
         if (waterCompaction) {
-            const auto& rock2dTables = eclState.getTableManager().getRock2dTables();
-            const auto& rock2dtrTables = eclState.getTableManager().getRock2dtrTables();
-            const auto& rockwnodTables = eclState.getTableManager().getRockwnodTables();
+            TableManager tableManager = this->getTableManager();
+            const auto& rock2dTables = tableManager.getRock2dTables();
+            const auto& rock2dtrTables = tableManager.getRock2dtrTables();
+            const auto& rockwnodTables = tableManager.getRockwnodTables();
 
             if (rock2dTables.size() != numRocktabTables)
                 throw std::runtime_error("Water compation option is selected in ROCKCOMP." + std::to_string(numRocktabTables)
