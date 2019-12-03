@@ -163,6 +163,12 @@ std::size_t packSize(const std::vector<bool,A>& data, Dune::MPIHelper::MPICommun
     return packSize(data.size(), comm) + data.size()*packSize(entry,comm);
 }
 
+template std::size_t packSize(const std::vector<Rock2dTable>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+
+template std::size_t packSize(const std::vector<Rock2dtrTable>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+
 template<class Key, class Value>
 std::size_t packSize(const OrderedMap<Key,Value>& data, Dune::MPIHelper::MPICommunicator comm)
 {
@@ -1028,6 +1034,14 @@ void pack(const std::vector<bool,A>& data, std::vector<char>& buffer, int& posit
         pack(b, buffer, position, comm);
     }
 }
+
+template void pack(const std::vector<Rock2dTable>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+
+template void pack(const std::vector<Rock2dtrTable>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
 
 template<class Key, class Value>
 void pack(const OrderedMap<Key, Value>& data, std::vector<char>& buffer, int& position,
@@ -1961,6 +1975,14 @@ void unpack(std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
         data.push_back(entry);
     }
 }
+
+template void unpack(std::vector<Rock2dTable>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template void unpack(std::vector<Rock2dtrTable>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
 
 template<class Key, class Value>
 void unpack(OrderedMap<Key,Value>& data, std::vector<char>& buffer, int& position,
