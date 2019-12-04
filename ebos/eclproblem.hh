@@ -608,11 +608,13 @@ public:
         const auto& comm = this->gridView().comm();
         if (comm.rank() == 0) {
             SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
+            PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
             if (comm.size() > 1) {
-                size_t size = solventPackSize();
+                size_t size = solventPackSize() + polymerPackSize();
                 std::vector<char> buffer(size);
                 int position = 0;
                 packSolvent(buffer, position);
+                packPolymer(buffer, position);
                 comm.broadcast(&position, 1, 0);
                 comm.broadcast(buffer.data(), position, 0);
             }
@@ -623,8 +625,8 @@ public:
             comm.broadcast(buffer.data(), size, 0);
             int position = 0;
             unpackSolvent(buffer, position);
+            unpackPolymer(buffer, position);
         }
-        PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
         FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
 
         // create the ECL writer
@@ -3249,6 +3251,41 @@ private:
                Mpi::packSize(SolventModule::isMiscible_, comm);
     }
 
+    std::size_t polymerPackSize()
+    {
+        const auto& comm = this->gridView().comm();
+        std::size_t size = Mpi::packSize(PolymerModule::plyrockDeadPoreVolume_, comm) +
+               Mpi::packSize(PolymerModule::plyrockResidualResistanceFactor_, comm) +
+               Mpi::packSize(PolymerModule::plyrockRockDensityFactor_, comm) +
+               Mpi::packSize(PolymerModule::plyrockAdsorbtionIndex_, comm) +
+               Mpi::packSize(PolymerModule::plyrockMaxAdsorbtion_, comm) +
+               Mpi::packSize(PolymerModule::plyadsAdsorbedPolymer_, comm) +
+               Mpi::packSize(PolymerModule::plyviscViscosityMultiplierTable_, comm) +
+               Mpi::packSize(PolymerModule::plymaxMaxConcentration_, comm) +
+               Mpi::packSize(PolymerModule::plymixparToddLongstaff_, comm) +
+               Mpi::packSize(PolymerModule::plyshlogShearEffectRefMultiplier_, comm) +
+               Mpi::packSize(PolymerModule::plyshlogShearEffectRefLogVelocity_, comm) +
+               Mpi::packSize(PolymerModule::shrate_, comm) +
+               Mpi::packSize(PolymerModule::hasShrate_, comm) +
+               Mpi::packSize(PolymerModule::hasPlyshlog_, comm) +
+               Mpi::packSize(PolymerModule::plymwinjTables_, comm) +
+               Mpi::packSize(PolymerModule::skprwatTables_, comm);
+        size += Mpi::packSize(PolymerModule::plyvmhCoefficients_.size(), comm);
+        for (const auto& it : PolymerModule::plyvmhCoefficients_) {
+            size += Mpi::packSize(it.k_mh, comm);
+            size += Mpi::packSize(it.a_mh, comm);
+            size += Mpi::packSize(it.gamma, comm);
+            size += Mpi::packSize(it.kappa, comm);
+        }
+        size += Mpi::packSize(PolymerModule::skprpolyTables_.size(), comm);
+        for (const auto& it : PolymerModule::skprpolyTables_) {
+            size += Mpi::packSize(it.first, comm);
+            size += Mpi::packSize(it.second.refConcentration, comm);
+            size += Mpi::packSize(it.second.table_func, comm);
+        }
+        return size;
+    }
+
     void packSolvent(std::vector<char>& buffer, int& position)
     {
         const auto& comm = this->gridView().comm();
@@ -3268,6 +3305,40 @@ private:
         Mpi::pack(SolventModule::isMiscible_, buffer, position, comm);
     }
 
+    void packPolymer(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::pack(PolymerModule::plyrockDeadPoreVolume_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyrockResidualResistanceFactor_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyrockRockDensityFactor_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyrockAdsorbtionIndex_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyrockMaxAdsorbtion_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyadsAdsorbedPolymer_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyviscViscosityMultiplierTable_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plymaxMaxConcentration_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plymixparToddLongstaff_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyshlogShearEffectRefMultiplier_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyshlogShearEffectRefLogVelocity_, buffer, position, comm);
+        Mpi::pack(PolymerModule::shrate_, buffer, position, comm);
+        Mpi::pack(PolymerModule::hasShrate_, buffer, position, comm);
+        Mpi::pack(PolymerModule::hasPlyshlog_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plymwinjTables_, buffer, position, comm);
+        Mpi::pack(PolymerModule::skprwatTables_, buffer, position, comm);
+        Mpi::pack(PolymerModule::plyvmhCoefficients_.size(), buffer, position, comm);
+        for (const auto& it : PolymerModule::plyvmhCoefficients_) {
+            Mpi::pack(it.k_mh, buffer, position, comm);
+            Mpi::pack(it.a_mh, buffer, position, comm);
+            Mpi::pack(it.gamma, buffer, position, comm);
+            Mpi::pack(it.kappa, buffer, position, comm);
+        }
+        Mpi::pack(PolymerModule::skprpolyTables_.size(), buffer, position, comm);
+        for (const auto& it : PolymerModule::skprpolyTables_) {
+            Mpi::pack(it.first, buffer, position, comm);
+            Mpi::pack(it.second.refConcentration, buffer, position, comm);
+            Mpi::pack(it.second.table_func, buffer, position, comm);
+        }
+    }
+
     void unpackSolvent(std::vector<char>& buffer, int& position)
     {
         const auto& comm = this->gridView().comm();
@@ -3285,6 +3356,44 @@ private:
         Mpi::unpack(SolventModule::tlMixParamDensity_, buffer, position, comm);
         Mpi::unpack(SolventModule::tlPMixTable_, buffer, position, comm);
         Mpi::unpack(SolventModule::isMiscible_, buffer, position, comm);
+    }
+
+    void unpackPolymer(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::unpack(PolymerModule::plyrockDeadPoreVolume_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyrockResidualResistanceFactor_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyrockRockDensityFactor_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyrockAdsorbtionIndex_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyrockMaxAdsorbtion_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyadsAdsorbedPolymer_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyviscViscosityMultiplierTable_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plymaxMaxConcentration_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plymixparToddLongstaff_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyshlogShearEffectRefMultiplier_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plyshlogShearEffectRefLogVelocity_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::shrate_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::hasShrate_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::hasPlyshlog_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::plymwinjTables_, buffer, position, comm);
+        Mpi::unpack(PolymerModule::skprwatTables_, buffer, position, comm);
+        size_t size;
+        Mpi::unpack(size, buffer, position, comm);
+        PolymerModule::plyvmhCoefficients_.resize(size);
+        for (auto& it : PolymerModule::plyvmhCoefficients_) {
+            Mpi::unpack(it.k_mh, buffer, position, comm);
+            Mpi::unpack(it.a_mh, buffer, position, comm);
+            Mpi::unpack(it.gamma, buffer, position, comm);
+            Mpi::unpack(it.kappa, buffer, position, comm);
+        }
+        Mpi::unpack(size, buffer, position, comm);
+        PolymerModule::skprpolyTables_.clear();
+        for (size_t i = 0; i < size; ++i) {
+            int key;
+            Mpi::unpack(key, buffer, position, comm);
+            Mpi::unpack(PolymerModule::skprpolyTables_[key].refConcentration, buffer, position, comm);
+            Mpi::unpack(PolymerModule::skprpolyTables_[key].table_func, buffer, position, comm);
+        }
     }
 
     static std::string briefDescription_;
