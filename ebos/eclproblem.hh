@@ -605,7 +605,25 @@ public:
         this->model().addOutputModule(new VtkEclTracerModule<TypeTag>(simulator));
         // Tell the black-oil extensions to initialize their internal data structures
         const auto& vanguard = simulator.vanguard();
-        SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
+        const auto& comm = this->gridView().comm();
+        if (comm.rank() == 0) {
+            SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
+            if (comm.size() > 1) {
+                size_t size = solventPackSize();
+                std::vector<char> buffer(size);
+                int position = 0;
+                packSolvent(buffer, position);
+                comm.broadcast(&position, 1, 0);
+                comm.broadcast(buffer.data(), position, 0);
+            }
+        } else {
+            int size;
+            comm.broadcast(&size, 1, 0);
+            std::vector<char> buffer(size);
+            comm.broadcast(buffer.data(), size, 0);
+            int position = 0;
+            unpackSolvent(buffer, position);
+        }
         PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
         FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
 
@@ -3210,6 +3228,63 @@ private:
         }
 
         return dtNext;
+    }
+
+    std::size_t solventPackSize()
+    {
+        const auto& comm = this->gridView().comm();
+        return Mpi::packSize(SolventModule::solventPvt_, comm) +
+               Mpi::packSize(SolventModule::ssfnKrg_, comm) +
+               Mpi::packSize(SolventModule::ssfnKrs_, comm) +
+               Mpi::packSize(SolventModule::sof2Krn_, comm) +
+               Mpi::packSize(SolventModule::misc_, comm) +
+               Mpi::packSize(SolventModule::pmisc_, comm) +
+               Mpi::packSize(SolventModule::msfnKrsg_, comm) +
+               Mpi::packSize(SolventModule::msfnKro_, comm) +
+               Mpi::packSize(SolventModule::sorwmis_, comm) +
+               Mpi::packSize(SolventModule::sgcwmis_, comm) +
+               Mpi::packSize(SolventModule::tlMixParamViscosity_, comm) +
+               Mpi::packSize(SolventModule::tlMixParamDensity_, comm) +
+               Mpi::packSize(SolventModule::tlPMixTable_, comm) +
+               Mpi::packSize(SolventModule::isMiscible_, comm);
+    }
+
+    void packSolvent(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::pack(SolventModule::solventPvt_, buffer, position, comm);
+        Mpi::pack(SolventModule::ssfnKrg_, buffer, position, comm);
+        Mpi::pack(SolventModule::ssfnKrs_, buffer, position, comm);
+        Mpi::pack(SolventModule::sof2Krn_, buffer, position, comm);
+        Mpi::pack(SolventModule::misc_, buffer, position, comm);
+        Mpi::pack(SolventModule::pmisc_, buffer, position, comm);
+        Mpi::pack(SolventModule::msfnKrsg_, buffer, position, comm);
+        Mpi::pack(SolventModule::msfnKro_, buffer, position, comm);
+        Mpi::pack(SolventModule::sorwmis_, buffer, position, comm);
+        Mpi::pack(SolventModule::sgcwmis_, buffer, position, comm);
+        Mpi::pack(SolventModule::tlMixParamViscosity_, buffer, position, comm);
+        Mpi::pack(SolventModule::tlMixParamDensity_, buffer, position, comm);
+        Mpi::pack(SolventModule::tlPMixTable_, buffer, position, comm);
+        Mpi::pack(SolventModule::isMiscible_, buffer, position, comm);
+    }
+
+    void unpackSolvent(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::unpack(SolventModule::solventPvt_, buffer, position, comm);
+        Mpi::unpack(SolventModule::ssfnKrg_, buffer, position, comm);
+        Mpi::unpack(SolventModule::ssfnKrs_, buffer, position, comm);
+        Mpi::unpack(SolventModule::sof2Krn_, buffer, position, comm);
+        Mpi::unpack(SolventModule::misc_, buffer, position, comm);
+        Mpi::unpack(SolventModule::pmisc_, buffer, position, comm);
+        Mpi::unpack(SolventModule::msfnKrsg_, buffer, position, comm);
+        Mpi::unpack(SolventModule::msfnKro_, buffer, position, comm);
+        Mpi::unpack(SolventModule::sorwmis_, buffer, position, comm);
+        Mpi::unpack(SolventModule::sgcwmis_, buffer, position, comm);
+        Mpi::unpack(SolventModule::tlMixParamViscosity_, buffer, position, comm);
+        Mpi::unpack(SolventModule::tlMixParamDensity_, buffer, position, comm);
+        Mpi::unpack(SolventModule::tlPMixTable_, buffer, position, comm);
+        Mpi::unpack(SolventModule::isMiscible_, buffer, position, comm);
     }
 
     static std::string briefDescription_;
