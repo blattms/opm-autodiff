@@ -609,12 +609,14 @@ public:
         if (comm.rank() == 0) {
             SolventModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
             PolymerModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
+            FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState(true));
             if (comm.size() > 1) {
-                size_t size = solventPackSize() + polymerPackSize();
+                size_t size = solventPackSize() + polymerPackSize() + foamPackSize();
                 std::vector<char> buffer(size);
                 int position = 0;
                 packSolvent(buffer, position);
                 packPolymer(buffer, position);
+                packFoam(buffer, position);
                 comm.broadcast(&position, 1, 0);
                 comm.broadcast(buffer.data(), position, 0);
             }
@@ -626,8 +628,8 @@ public:
             int position = 0;
             unpackSolvent(buffer, position);
             unpackPolymer(buffer, position);
+            unpackFoam(buffer, position);
         }
-        FoamModule::initFromDeck(vanguard.deck(), vanguard.eclState(false)); // this is hit
 
         // create the ECL writer
         eclWriter_.reset(new EclWriterType(simulator));
@@ -3286,6 +3288,30 @@ private:
         return size;
     }
 
+    std::size_t foamPackSize()
+    {
+        const auto& comm = this->gridView().comm();
+        std::size_t size = Mpi::packSize(FoamModule::foamRockDensity_, comm) +
+                           Mpi::packSize(FoamModule::foamAllowDesorption_, comm) +
+                           Mpi::packSize(FoamModule::adsorbedFoamTable_, comm) +
+                           Mpi::packSize(FoamModule::gasMobilityMultiplierTable_, comm);
+        size += Mpi::packSize(FoamModule::foamCoefficients_.size(), comm);
+        for (const auto& it : FoamModule::foamCoefficients_) {
+            size += Mpi::packSize(it.fm_min, comm);
+            size += Mpi::packSize(it.fm_mob, comm);
+            size += Mpi::packSize(it.fm_surf, comm);
+            size += Mpi::packSize(it.ep_surf, comm);
+            size += Mpi::packSize(it.fm_oil, comm);
+            size += Mpi::packSize(it.fl_oil, comm);
+            size += Mpi::packSize(it.ep_oil, comm);
+            size += Mpi::packSize(it.fm_cap, comm);
+            size += Mpi::packSize(it.ep_cap, comm);
+            size += Mpi::packSize(it.fm_dry, comm);
+            size += Mpi::packSize(it.ep_dry, comm);
+        }
+        return size;
+    }
+
     void packSolvent(std::vector<char>& buffer, int& position)
     {
         const auto& comm = this->gridView().comm();
@@ -3336,6 +3362,29 @@ private:
             Mpi::pack(it.first, buffer, position, comm);
             Mpi::pack(it.second.refConcentration, buffer, position, comm);
             Mpi::pack(it.second.table_func, buffer, position, comm);
+        }
+    }
+
+    void packFoam(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::pack(FoamModule::foamRockDensity_, buffer, position, comm);
+        Mpi::pack(FoamModule::foamAllowDesorption_, buffer, position, comm);
+        Mpi::pack(FoamModule::adsorbedFoamTable_, buffer, position, comm);
+        Mpi::pack(FoamModule::gasMobilityMultiplierTable_, buffer, position, comm);
+        Mpi::pack(FoamModule::foamCoefficients_.size(), buffer, position, comm);
+        for (const auto& it : FoamModule::foamCoefficients_) {
+            Mpi::pack(it.fm_min, buffer, position, comm);
+            Mpi::pack(it.fm_mob, buffer, position, comm);
+            Mpi::pack(it.fm_surf, buffer, position, comm);
+            Mpi::pack(it.ep_surf, buffer, position, comm);
+            Mpi::pack(it.fm_oil, buffer, position, comm);
+            Mpi::pack(it.fl_oil, buffer, position, comm);
+            Mpi::pack(it.ep_oil, buffer, position, comm);
+            Mpi::pack(it.fm_cap, buffer, position, comm);
+            Mpi::pack(it.ep_cap, buffer, position, comm);
+            Mpi::pack(it.fm_dry, buffer, position, comm);
+            Mpi::pack(it.ep_dry, buffer, position, comm);
         }
     }
 
@@ -3393,6 +3442,31 @@ private:
             Mpi::unpack(key, buffer, position, comm);
             Mpi::unpack(PolymerModule::skprpolyTables_[key].refConcentration, buffer, position, comm);
             Mpi::unpack(PolymerModule::skprpolyTables_[key].table_func, buffer, position, comm);
+        }
+    }
+
+    void unpackFoam(std::vector<char>& buffer, int& position)
+    {
+        const auto& comm = this->gridView().comm();
+        Mpi::unpack(FoamModule::foamRockDensity_, buffer, position, comm);
+        Mpi::unpack(FoamModule::foamAllowDesorption_, buffer, position, comm);
+        Mpi::unpack(FoamModule::adsorbedFoamTable_, buffer, position, comm);
+        Mpi::unpack(FoamModule::gasMobilityMultiplierTable_, buffer, position, comm);
+        size_t size;
+        Mpi::unpack(size, buffer, position, comm);
+        FoamModule::foamCoefficients_.resize(size);
+        for (auto& it : FoamModule::foamCoefficients_) {
+            Mpi::unpack(it.fm_min, buffer, position, comm);
+            Mpi::unpack(it.fm_mob, buffer, position, comm);
+            Mpi::unpack(it.fm_surf, buffer, position, comm);
+            Mpi::unpack(it.ep_surf, buffer, position, comm);
+            Mpi::unpack(it.fm_oil, buffer, position, comm);
+            Mpi::unpack(it.fl_oil, buffer, position, comm);
+            Mpi::unpack(it.ep_oil, buffer, position, comm);
+            Mpi::unpack(it.fm_cap, buffer, position, comm);
+            Mpi::unpack(it.ep_cap, buffer, position, comm);
+            Mpi::unpack(it.fm_dry, buffer, position, comm);
+            Mpi::unpack(it.ep_dry, buffer, position, comm);
         }
     }
 
