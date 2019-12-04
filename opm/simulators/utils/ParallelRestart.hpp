@@ -127,6 +127,12 @@ std::size_t packSize(const std::vector<T,A>& data, Dune::MPIHelper::MPICommunica
 template<class A>
 std::size_t packSize(const std::vector<bool,A>& data, Dune::MPIHelper::MPICommunicator comm);
 
+template<class T, std::size_t N>
+std::size_t packSize(const std::array<T,N>& data, Dune::MPIHelper::MPICommunicator comm)
+{
+    return N*packSize(data[0], comm);
+}
+
 std::size_t packSize(const char* str, Dune::MPIHelper::MPICommunicator comm);
 
 std::size_t packSize(const std::string& str, Dune::MPIHelper::MPICommunicator comm);
@@ -190,6 +196,14 @@ void pack(const std::vector<T,A>& data, std::vector<char>& buffer, int& position
 template<class A>
 void pack(const std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
+
+template<class T, size_t N>
+void pack(const std::array<T,N>& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    for (const T& entry : data)
+        pack(entry, buffer, position, comm);
+}
 
 template<class T1, class T2, class C, class A>
 void pack(const std::map<T1,T2,C,A>& data, std::vector<char>& buffer, int& position,
@@ -260,6 +274,14 @@ void unpack(std::vector<T,A>& data, std::vector<char>& buffer, int& position,
 template<class A>
 void unpack(std::vector<bool,A>& data, std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
+
+template<class T, size_t N>
+void unpack(std::array<T,N>& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    for (T& entry : data)
+        unpack(entry, buffer, position, comm);
+}
 
 template<class T1, class T2, class C, class A>
 void unpack(std::map<T1,T2,C,A>& data, std::vector<char>& buffer, int& position,
