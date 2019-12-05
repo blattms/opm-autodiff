@@ -25,6 +25,7 @@
 
 #include <opm/material/fluidsystems/blackoilpvt/SolventPvt.hpp>
 #include <opm/material/common/IntervalTabulated2DFunction.hpp>
+#include <opm/material/common/UniformXTabulated2DFunction.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/DryGasPvt.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
 #include <opm/output/eclipse/EclipseIO.hpp>
@@ -178,6 +179,9 @@ template<class Scalar>
 std::size_t packSize(const IntervalTabulated2DFunction<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
+std::size_t packSize(const UniformXTabulated2DFunction<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
 std::size_t packSize(const SolventPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
@@ -275,6 +279,10 @@ void pack(const Tabulated1DFunction<Scalar>& data, std::vector<char>& buffer,
 
 template<class Scalar>
 void pack(const IntervalTabulated2DFunction<Scalar>& data, std::vector<char>& buffer,
+          int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void pack(const UniformXTabulated2DFunction<Scalar>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
@@ -380,6 +388,10 @@ void unpack(Tabulated1DFunction<Scalar>& data, std::vector<char>& buffer,
 
 template<class Scalar>
 void unpack(IntervalTabulated2DFunction<Scalar>& data, std::vector<char>& buffer,
+            int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void unpack(UniformXTabulated2DFunction<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
