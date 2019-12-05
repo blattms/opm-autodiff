@@ -233,6 +233,9 @@ template<class Scalar>
 std::size_t packSize(const ConstantCompressibilityWaterPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar>
+std::size_t packSize(const WaterPvtThermal<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
+
 ////// pack routines
 
 template<class T>
@@ -386,6 +389,10 @@ void pack(const ConstantCompressibilityWaterPvt<Scalar>& data,
           std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar>
+void pack(const WaterPvtThermal<Scalar>& data, std::vector<char>& buffer,
+          int& position, Dune::MPIHelper::MPICommunicator comm);
+
 void pack(const char* str, std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
 
@@ -533,6 +540,10 @@ template<class Scalar, bool enableThermal>
 void unpack(WaterPvtMultiplexer<Scalar,enableThermal>& data,
             const std::vector<char>& buffer, int& position,
             Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void unpack(WaterPvtThermal<Scalar>& data, std::vector<char>& buffer,
+            int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void unpack(ConstantCompressibilityWaterPvt<Scalar>& data, std::vector<char>& buffer,
