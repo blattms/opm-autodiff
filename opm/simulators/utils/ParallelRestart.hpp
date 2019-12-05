@@ -27,6 +27,7 @@
 #include <opm/material/common/IntervalTabulated2DFunction.hpp>
 #include <opm/material/common/UniformXTabulated2DFunction.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/DryGasPvt.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/GasPvtMultiplexer.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/SolventPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/WetGasPvt.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
@@ -186,6 +187,10 @@ std::size_t packSize(const UniformXTabulated2DFunction<Scalar>& data, Dune::MPIH
 template<class Scalar>
 std::size_t packSize(const SolventPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, bool enableThermal>
+std::size_t packSize(const GasPvtMultiplexer<Scalar,enableThermal>& data,
+                     Dune::MPIHelper::MPICommunicator comm);
+
 template<class Scalar>
 std::size_t packSize(const DryGasPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
@@ -293,6 +298,11 @@ void pack(const UniformXTabulated2DFunction<Scalar>& data, std::vector<char>& bu
 template<class Scalar>
 void pack(const SolventPvt<Scalar>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void pack(const GasPvtMultiplexer<Scalar,enableThermal>& data,
+          const std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void pack(const DryGasPvt<Scalar>& data, std::vector<char>& buffer,
@@ -406,6 +416,11 @@ void unpack(UniformXTabulated2DFunction<Scalar>& data, std::vector<char>& buffer
 template<class Scalar>
 void unpack(SolventPvt<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void unpack(GasPvtMultiplexer<Scalar,enableThermal>& data,
+            const std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void unpack(DryGasPvt<Scalar>& data, std::vector<char>& buffer,

@@ -612,6 +612,32 @@ std::size_t packSize(const DryGasPvt<Scalar>& data,
 template std::size_t packSize(const DryGasPvt<double>& data,
                               Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, bool enableThermal>
+std::size_t packSize(const GasPvtMultiplexer<Scalar,enableThermal>& data,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    std::size_t size = packSize(data.gasPvtApproach(), comm);
+    const void* realGasPvt = data.realGasPvt();
+    using PvtApproach = GasPvtMultiplexer<Scalar,enableThermal>;
+    if (data.gasPvtApproach() == PvtApproach::DryGasPvt) {
+        const auto& pvt = *static_cast<const DryGasPvt<Scalar>*>(realGasPvt);
+        size += packSize(pvt, comm);
+    } else if (data.gasPvtApproach() == PvtApproach::WetGasPvt) {
+        const auto& pvt = *static_cast<const WetGasPvt<Scalar>*>(realGasPvt);
+        size += packSize(pvt, comm);
+    } else if (data.gasPvtApproach() == PvtApproach::ThermalGasPvt) {
+        const auto& pvt = *static_cast<const GasPvtThermal<Scalar>*>(realGasPvt);
+        size += packSize(pvt, comm);
+    }
+
+    return size;
+}
+
+template std::size_t packSize(const GasPvtMultiplexer<double,true>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+template std::size_t packSize(const GasPvtMultiplexer<double,false>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+
 template<class Scalar>
 std::size_t packSize(const WetGasPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm)
@@ -1219,6 +1245,33 @@ void pack(const SolventPvt<Scalar>& data, std::vector<char>& buffer, int& positi
 }
 
 template void pack(const SolventPvt<double>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void pack(const GasPvtMultiplexer<Scalar,enableThermal>& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.gasPvtApproach(), buffer, position, comm);
+    const void* realGasPvt = data.realGasPvt();
+    using PvtApproach = GasPvtMultiplexer<Scalar,enableThermal>;
+    if (data.gasPvtApproach() == PvtApproach::DryGasPvt) {
+        const auto& pvt = *static_cast<const DryGasPvt<Scalar>*>(realGasPvt);
+        pack(pvt, buffer, position, comm);
+    } else if (data.gasPvtApproach() == PvtApproach::WetGasPvt) {
+        const auto& pvt = *static_cast<const WetGasPvt<Scalar>*>(realGasPvt);
+        pack(pvt, buffer, position, comm);
+    } else if (data.gasPvtApproach() == PvtApproach::ThermalGasPvt) {
+        const auto& pvt = *static_cast<const GasPvtThermal<Scalar>*>(realGasPvt);
+        pack(pvt, buffer, position, comm);
+    }
+}
+
+template void pack(const GasPvtMultiplexer<double,true>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+template void pack(const GasPvtMultiplexer<double,false>& data,
                    std::vector<char>& buffer, int& position,
                    Dune::MPIHelper::MPICommunicator comm);
 
@@ -2012,6 +2065,38 @@ void unpack(SolventPvt<Scalar>& data, std::vector<char>& buffer, int& position,
 }
 
 template void unpack(SolventPvt<double>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void unpack(GasPvtMultiplexer<Scalar,enableThermal>& data,
+            std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    typename GasPvtMultiplexer<Scalar,enableThermal>::GasPvtApproach approach;
+    unpack(approach, buffer, position, comm);
+    using PvtApproach = GasPvtMultiplexer<Scalar,enableThermal>;
+    void* pvt = nullptr;
+    if (approach == PvtApproach::DryGasPvt) {
+        DryGasPvt<Scalar>* realPvt = new DryGasPvt<Scalar>;
+        unpack(*realPvt, buffer, position, comm);
+        pvt = realPvt;
+    } else if (data.gasPvtApproach() == PvtApproach::WetGasPvt) {
+        WetGasPvt<Scalar>* realPvt = new WetGasPvt<Scalar>;
+        unpack(*realPvt, buffer, position, comm);
+        pvt = realPvt;
+    } else if (data.gasPvtApproach() == PvtApproach::ThermalGasPvt) {
+        GasPvtThermal<Scalar>* realPvt = new GasPvtThermal<Scalar>;
+        unpack(*realPvt, buffer, position, comm);
+        pvt = realPvt;
+    }
+    data = GasPvtMultiplexer<Scalar,enableThermal>(approach, pvt);
+}
+
+template void unpack(GasPvtMultiplexer<double,true>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+template void unpack(GasPvtMultiplexer<double,false>& data,
                      std::vector<char>& buffer, int& position,
                      Dune::MPIHelper::MPICommunicator comm);
 
