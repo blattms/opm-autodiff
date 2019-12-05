@@ -34,6 +34,7 @@
 #include <opm/material/fluidsystems/blackoilpvt/LiveOilPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/OilPvtMultiplexer.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/SolventPvt.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/WaterPvtMultiplexer.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/WetGasPvt.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
 #include <opm/output/eclipse/EclipseIO.hpp>
@@ -224,6 +225,10 @@ std::size_t packSize(const LiveOilPvt<Scalar>& data,
 template<class Scalar>
 std::size_t packSize(const OilPvtThermal<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, bool enableThermal>
+std::size_t packSize(const WaterPvtMultiplexer<Scalar,enableThermal>& data,
+                     Dune::MPIHelper::MPICommunicator comm);
+
 template<class Scalar>
 std::size_t packSize(const ConstantCompressibilityWaterPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm);
@@ -370,6 +375,11 @@ void pack(const LiveOilPvt<Scalar>& data,
 template<class Scalar>
 void pack(const OilPvtThermal<Scalar>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void pack(const WaterPvtMultiplexer<Scalar,enableThermal>& data,
+          const std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void pack(const ConstantCompressibilityWaterPvt<Scalar>& data,
@@ -518,6 +528,11 @@ void unpack(LiveOilPvt<Scalar>& data, std::vector<char>& buffer,
 template<class Scalar>
 void unpack(OilPvtThermal<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void unpack(WaterPvtMultiplexer<Scalar,enableThermal>& data,
+            const std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void unpack(ConstantCompressibilityWaterPvt<Scalar>& data, std::vector<char>& buffer,

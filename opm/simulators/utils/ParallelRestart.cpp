@@ -779,6 +779,29 @@ std::size_t packSize(const OilPvtThermal<Scalar>& data,
 template std::size_t packSize(const OilPvtThermal<double>& data,
                               Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, bool enableThermal>
+std::size_t packSize(const WaterPvtMultiplexer<Scalar,enableThermal>& data,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    std::size_t size = packSize(data.approach(), comm);
+    const void* realWaterPvt = data.realWaterPvt();
+    using PvtApproach = WaterPvtMultiplexer<Scalar,enableThermal>;
+    if (data.approach() == PvtApproach::ConstantCompressibilityWaterPvt) {
+        const auto& pvt = *static_cast<const ConstantCompressibilityWaterPvt<Scalar>*>(realWaterPvt);
+        size += packSize(pvt, comm);
+    } else if (data.approach() == PvtApproach::ThermalWaterPvt) {
+        const auto& pvt = *static_cast<const WaterPvtThermal<Scalar>*>(realWaterPvt);
+        size += packSize(pvt, comm);
+    }
+
+    return size;
+}
+
+template std::size_t packSize(const WaterPvtMultiplexer<double,true>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+template std::size_t packSize(const WaterPvtMultiplexer<double,false>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+
 template<class Scalar>
 std::size_t packSize(const ConstantCompressibilityWaterPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm)
@@ -1574,6 +1597,30 @@ void pack(const OilPvtThermal<Scalar>& data,
 }
 
 template void pack(const OilPvtThermal<double>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void pack(const WaterPvtMultiplexer<Scalar,enableThermal>& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.approach(), buffer, position, comm);
+    const void* realWaterPvt = data.realWaterPvt();
+    using PvtApproach = WaterPvtMultiplexer<Scalar,enableThermal>;
+    if (data.approach() == PvtApproach::ConstantCompressibilityWaterPvt) {
+        const auto& pvt = *static_cast<const ConstantCompressibilityWaterPvt<Scalar>*>(realWaterPvt);
+        pack(pvt, buffer, position, comm);
+    } else if (data.approach() == PvtApproach::ThermalWaterPvt) {
+        const auto& pvt = *static_cast<const WaterPvtThermal<Scalar>*>(realWaterPvt);
+        pack(pvt, buffer, position, comm);
+    }
+}
+
+template void pack(const WaterPvtMultiplexer<double,true>& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+template void pack(const WaterPvtMultiplexer<double,false>& data,
                    std::vector<char>& buffer, int& position,
                    Dune::MPIHelper::MPICommunicator comm);
 
@@ -2638,6 +2685,34 @@ void unpack(OilPvtThermal<Scalar>& data,
 }
 
 template void unpack(OilPvtThermal<double>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void unpack(WaterPvtMultiplexer<Scalar,enableThermal>& data,
+            std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    typename WaterPvtMultiplexer<Scalar,enableThermal>::WaterPvtApproach approach;
+    unpack(approach, buffer, position, comm);
+    using PvtApproach = WaterPvtMultiplexer<Scalar,enableThermal>;
+    void* pvt;
+    if (approach == PvtApproach::ConstantCompressibilityWaterPvt) {
+        auto* realPvt = new ConstantCompressibilityWaterPvt<Scalar>;
+        unpack(*realPvt, buffer, position, comm);
+        pvt = realPvt;
+    } else if (data.approach() == PvtApproach::ThermalWaterPvt) {
+        auto* realPvt = new WaterPvtThermal<Scalar>;
+        unpack(*realPvt, buffer, position, comm);
+        pvt = realPvt;
+    }
+    data = WaterPvtMultiplexer<Scalar,enableThermal>(approach, pvt);
+}
+
+template void unpack(WaterPvtMultiplexer<double,true>& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+template void unpack(WaterPvtMultiplexer<double,false>& data,
                      std::vector<char>& buffer, int& position,
                      Dune::MPIHelper::MPICommunicator comm);
 
