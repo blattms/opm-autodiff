@@ -220,6 +220,9 @@ template<class Scalar>
 std::size_t packSize(const LiveOilPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar>
+std::size_t packSize(const OilPvtThermal<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
+
 ////// pack routines
 
 template<class T>
@@ -359,6 +362,10 @@ void pack(const LiveOilPvt<Scalar>& data,
           std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar>
+void pack(const OilPvtThermal<Scalar>& data, std::vector<char>& buffer,
+          int& position, Dune::MPIHelper::MPICommunicator comm);
+
 void pack(const char* str, std::vector<char>& buffer, int& position,
           Dune::MPIHelper::MPICommunicator comm);
 
@@ -496,6 +503,10 @@ void unpack(DeadOilPvt<Scalar>& data, std::vector<char>& buffer,
 
 template<class Scalar>
 void unpack(LiveOilPvt<Scalar>& data, std::vector<char>& buffer,
+            int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void unpack(OilPvtThermal<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
 
 void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& position,
