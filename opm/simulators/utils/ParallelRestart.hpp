@@ -31,6 +31,7 @@
 #include <opm/material/fluidsystems/blackoilpvt/DryGasPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/GasPvtMultiplexer.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/LiveOilPvt.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/OilPvtMultiplexer.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/SolventPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/WetGasPvt.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
@@ -203,6 +204,10 @@ std::size_t packSize(const GasPvtThermal<Scalar>& data, Dune::MPIHelper::MPIComm
 template<class Scalar>
 std::size_t packSize(const WetGasPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, bool enableThermal>
+std::size_t packSize(const OilPvtMultiplexer<Scalar,enableThermal>& data,
+                     Dune::MPIHelper::MPICommunicator comm);
+
 template<class Scalar>
 std::size_t packSize(const ConstantCompressibilityOilPvt<Scalar>& data,
                      Dune::MPIHelper::MPICommunicator comm);
@@ -333,6 +338,11 @@ void pack(const GasPvtThermal<Scalar>& data, std::vector<char>& buffer,
 template<class Scalar>
 void pack(const WetGasPvt<Scalar>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void pack(const OilPvtMultiplexer<Scalar,enableThermal>& data,
+          const std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void pack(const ConstantCompressibilityOilPvt<Scalar>& data,
@@ -470,6 +480,11 @@ void unpack(GasPvtThermal<Scalar>& data, std::vector<char>& buffer,
 template<class Scalar>
 void unpack(WetGasPvt<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, bool enableThermal>
+void unpack(OilPvtMultiplexer<Scalar,enableThermal>& data,
+            const std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 void unpack(ConstantCompressibilityOilPvt<Scalar>& data, std::vector<char>& buffer,
