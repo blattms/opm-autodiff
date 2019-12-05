@@ -195,6 +195,9 @@ template<class Scalar>
 std::size_t packSize(const DryGasPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
+std::size_t packSize(const GasPvtThermal<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
 std::size_t packSize(const WetGasPvt<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
 ////// pack routines
@@ -306,6 +309,10 @@ void pack(const GasPvtMultiplexer<Scalar,enableThermal>& data,
 
 template<class Scalar>
 void pack(const DryGasPvt<Scalar>& data, std::vector<char>& buffer,
+          int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void pack(const GasPvtThermal<Scalar>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
@@ -424,6 +431,10 @@ void unpack(GasPvtMultiplexer<Scalar,enableThermal>& data,
 
 template<class Scalar>
 void unpack(DryGasPvt<Scalar>& data, std::vector<char>& buffer,
+            int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar>
+void unpack(GasPvtThermal<Scalar>& data, std::vector<char>& buffer,
             int& position, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
