@@ -30,6 +30,7 @@
 #include <opm/parser/eclipse/EclipseState/IOConfig/IOConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/IOConfig/RestartConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/Edit/EDITNNC.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/Events.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/OilVaporizationProperties.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/TimeMap.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp>
@@ -852,8 +853,6 @@ std::size_t packSize(const WaterPvtThermal<Scalar>& data,
 template std::size_t packSize(const WaterPvtThermal<double>& data,
                               Dune::MPIHelper::MPICommunicator comm);
 
-<<<<<<< HEAD
-=======
 std::size_t packSize(const OilVaporizationProperties& data,
                      Dune::MPIHelper::MPICommunicator comm)
 {
@@ -865,34 +864,12 @@ std::size_t packSize(const OilVaporizationProperties& data,
            packSize(data.maxDRVDT(), comm);
 }
 
-template<class T>
-std::size_t fluidSystemPackSize(Dune::MPIHelper::MPICommunicator comm)
+std::size_t packSize(const Events& data,
+                     Dune::MPIHelper::MPICommunicator comm)
 {
-    std::size_t size = Mpi::packSize(T::reservoirTemperature_, comm) +
-                       Mpi::packSize(T::enableDissolvedGas_, comm) +
-                       Mpi::packSize(T::enableVaporizedOil_, comm) +
-                       Mpi::packSize(T::referenceDensity_, comm) +
-                       Mpi::packSize(T::molarMass_, comm) +
-                       Mpi::packSize(T::isInitialized_, comm) +
-                       2 * T::numPhases * Mpi::packSize(short(), comm);
-    size += 3*Mpi::packSize(bool(), comm);
-    if (T::gasPvt_)
-        size += Mpi::packSize(*T::gasPvt_, comm);
-    if (T::oilPvt_)
-        size += Mpi::packSize(*T::oilPvt_, comm);
-    if (T::waterPvt_)
-        size += Mpi::packSize(*T::waterPvt_, comm);
-
-    return size;
+    return packSize(data.events(), comm);
 }
 
-template std::size_t
-fluidSystemPackSize<BlackOilFluidSystem<double,BlackOilDefaultIndexTraits>>(Dune::MPIHelper::MPICommunicator comm);
-
-template std::size_t
-fluidSystemPackSize<BlackOilFluidSystem<double,EclAlternativeBlackOilIndexTraits>>(Dune::MPIHelper::MPICommunicator comm);
-
->>>>>>> a21a1c4d... add mpi serialization for OilVaporizationProperties
 ////// pack routines
 
 template<class T>
@@ -1762,6 +1739,14 @@ void pack(const OilVaporizationProperties& data,
     pack(data.maxDRSDT(), buffer, position, comm);
     pack(data.maxDRSDT_allCells(), buffer, position, comm);
     pack(data.maxDRVDT(), buffer, position, comm);
+
+}
+
+void pack(const Events& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.events(), buffer, position, comm);
 }
 
 /// unpack routines
@@ -2939,6 +2924,15 @@ void unpack(OilVaporizationProperties& data,
     unpack(maxDRVDT, buffer, position, comm);
     data = OilVaporizationProperties(type, vap1, vap2, maxDRSDT,
                                      maxDRSDT_allCells, maxDRVDT);
+}
+
+void unpack(Events& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    DynamicVector<uint64_t> events;
+    unpack(events, buffer, position, comm);
+    data = Events(events);
 }
 
 } // end namespace Mpi
