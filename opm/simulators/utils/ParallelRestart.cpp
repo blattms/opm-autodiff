@@ -171,6 +171,12 @@ std::size_t packSize(const DynamicState<T>& data, Dune::MPIHelper::MPICommunicat
     return packSize(data.data(), comm) + packSize(data.initialRange(), comm);
 }
 
+template<class T>
+std::size_t packSize(const DynamicVector<T>& data, Dune::MPIHelper::MPICommunicator comm)
+{
+    return packSize(data.data(), comm);
+}
+
 std::size_t packSize(const char* str, Dune::MPIHelper::MPICommunicator comm)
 {
 #if HAVE_MPI
@@ -1001,6 +1007,13 @@ void pack(const DynamicState<T>& data, std::vector<char>& buffer, int& position,
 {
     pack(data.data(), buffer, position, comm);
     pack(data.initialRange(), buffer, position, comm);
+}
+
+template<class T>
+void pack(const DynamicVector<T>& data, std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.data(), buffer, position, comm);
 }
 
 void pack(const char* str, std::vector<char>& buffer, int& position,
@@ -1874,6 +1887,15 @@ void unpack(DynamicState<T>& data, std::vector<char>& buffer, int& position,
     unpack(ddata, buffer, position, comm);
     unpack(initial_range, buffer, position, comm);
     data = DynamicState<T>(ddata, initial_range);
+}
+
+template<class T>
+void unpack(DynamicVector<T>& data, std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    std::vector<T> ddata;
+    unpack(ddata, buffer, position, comm);
+    data = DynamicVector<T>(ddata);
 }
 
 void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& position,
