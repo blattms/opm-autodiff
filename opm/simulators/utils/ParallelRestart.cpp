@@ -874,6 +874,12 @@ std::size_t packSize(const Events& data,
     return packSize(data.events(), comm);
 }
 
+std::size_t packSize(const MessageLimits& data,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    return packSize(data.getLimits(), comm);
+}
+
 ////// pack routines
 
 template<class T>
@@ -1753,6 +1759,12 @@ void pack(const Events& data,
     pack(data.events(), buffer, position, comm);
 }
 
+void pack(const MessageLimits& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.getLimits(), buffer, position, comm);
+}
 /// unpack routines
 
 template<class T>
@@ -2939,6 +2951,14 @@ void unpack(Events& data,
     data = Events(events);
 }
 
+void unpack(MessageLimits& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    DynamicState<MLimits> limits;
+    unpack(limits, buffer, position, comm);
+    data = MessageLimits(limits);
+}
 } // end namespace Mpi
 RestartValue loadParallelRestart(const EclipseIO* eclIO, SummaryState& summaryState,
                                  const std::vector<Opm::RestartKey>& solutionKeys,
