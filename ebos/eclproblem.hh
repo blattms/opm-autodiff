@@ -2510,10 +2510,25 @@ private:
     void initFluidSystem_()
     {
         const auto& simulator = this->simulator();
-        const auto& deck = simulator.vanguard().deck();
-        const auto& eclState = simulator.vanguard().eclState(false); // this is hit
-
-        FluidSystem::initFromDeck(deck, eclState);
+        const auto& comm = simulator.gridView().comm();
+        if (comm.rank() == 0) {
+            const auto& deck = simulator.vanguard().deck();
+            const auto& eclState = simulator.vanguard().eclState(true);
+            FluidSystem::initFromDeck(deck, eclState);
+            std::size_t size = Mpi::fluidSystemPackSize<FluidSystem>(comm);
+            std::vector<char> buffer(size);
+            int pos = 0;
+            Mpi::packFluidSystem<FluidSystem>(buffer, pos, comm);
+            comm.broadcast(&size, 1, 0);
+            comm.broadcast(buffer.data(), pos, 0);
+        } else {
+            int size;
+            comm.broadcast(&size, 1, 0);
+            std::vector<char> buffer(size);
+            comm.broadcast(buffer.data(), size, 0);
+            int pos = 0;
+            Mpi::unpackFluidSystem<FluidSystem>(buffer, pos, comm);
+        }
    }
 
     void readInitialCondition_()
