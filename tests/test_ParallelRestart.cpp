@@ -41,6 +41,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/OilVaporizationProperties.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/TimeMap.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/VFPInjTable.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/VFPProdTable.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Aqudims.hpp>
@@ -1237,6 +1238,36 @@ BOOST_AUTO_TEST_CASE(VFPInjTable)
         *(table.data() + i) = foo++;
     Opm::VFPInjTable val1(1, 2.0, Opm::VFPInjTable::FLO_WAT, {1.0, 2.0},
                           {3.0, 4.0, 5.0}, table);
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
+BOOST_AUTO_TEST_CASE(VFPProdTable)
+{
+#ifdef HAVE_MPI
+    Opm::VFPProdTable::array_type table;
+    Opm::VFPProdTable::extents shape;
+    shape[0] = 1;
+    shape[1] = 2;
+    shape[2] = 3;
+    shape[3] = 4;
+    shape[4] = 5;
+    table.resize(shape);
+    double foo = 1.0;
+    for (size_t i = 0; i < table.num_elements(); ++i)
+        *(table.data() + i) = foo++;
+    Opm::VFPProdTable val1(1, 2.0, Opm::VFPProdTable::FLO_OIL,
+                           Opm::VFPProdTable::WFR_WOR,
+                           Opm::VFPProdTable::GFR_GLR,
+                           Opm::VFPProdTable::ALQ_TGLR,
+                           {1.0, 2.0, 3.0, 4.0, 5.0},
+                           {1.0},
+                           {1.0, 2.0},
+                           {1.0, 2.0, 3.0},
+                           {1.0, 2.0, 3.0, 4.0}, table);
     auto val2 = PackUnpack(val1);
     BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
     BOOST_CHECK(val1 == std::get<0>(val2));
