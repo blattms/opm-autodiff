@@ -621,7 +621,7 @@ public:
                 comm.broadcast(buffer.data(), position, 0);
             }
         } else {
-            int size;
+            size_t size;
             comm.broadcast(&size, 1, 0);
             std::vector<char> buffer(size);
             comm.broadcast(buffer.data(), size, 0);
@@ -2522,7 +2522,7 @@ private:
             comm.broadcast(&size, 1, 0);
             comm.broadcast(buffer.data(), pos, 0);
         } else {
-            int size;
+            std::size_t size;
             comm.broadcast(&size, 1, 0);
             std::vector<char> buffer(size);
             comm.broadcast(buffer.data(), size, 0);
