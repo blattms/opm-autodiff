@@ -135,6 +135,8 @@ std::size_t packSize(const T& data, Dune::MPIHelper::MPICommunicator comm)
     return packSize(data, comm, typename std::is_pod<T>::type());
 }
 
+template std::size_t packSize(const short& data, Dune::MPIHelper::MPICommunicator comm);
+
 template<class T1, class T2>
 std::size_t packSize(const std::pair<T1,T2>& data, Dune::MPIHelper::MPICommunicator comm)
 {
@@ -168,6 +170,10 @@ template std::size_t packSize(const std::vector<Rock2dTable>& data,
 
 template std::size_t packSize(const std::vector<Rock2dtrTable>& data,
                               Dune::MPIHelper::MPICommunicator comm);
+
+template std::size_t packSize(const std::vector<std::array<double,3>>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+
 
 template<class Key, class Value>
 std::size_t packSize(const OrderedMap<Key,Value>& data, Dune::MPIHelper::MPICommunicator comm)
@@ -219,6 +225,8 @@ std::size_t packSize(const std::map<T1,T2,C,A>& data, Dune::MPIHelper::MPICommun
 }
 
 template std::size_t packSize(const std::map<std::string,int>& data, Dune::MPIHelper::MPICommunicator comm);
+template std::size_t packSize(const std::map<int,IntervalTabulated2DFunction<double>>& data,
+                              Dune::MPIHelper::MPICommunicator comm);
 
 template<class T1, class T2, class H, class P, class A>
 std::size_t packSize(const std::unordered_map<T1,T2,H,P,A>& data, Dune::MPIHelper::MPICommunicator comm)
@@ -934,6 +942,33 @@ std::size_t packSize(const WellTestConfig& data,
 {
     return packSize(data.getWells(), comm);
 }
+
+template<class T>
+std::size_t fluidSystemPackSize(Dune::MPIHelper::MPICommunicator comm)
+{
+    std::size_t size = Mpi::packSize(T::reservoirTemperature_, comm) +
+                       Mpi::packSize(T::enableDissolvedGas_, comm) +
+                       Mpi::packSize(T::enableVaporizedOil_, comm) +
+                       Mpi::packSize(T::referenceDensity_, comm) +
+                       Mpi::packSize(T::molarMass_, comm) +
+                       Mpi::packSize(T::isInitialized_, comm) +
+                       2 * T::numPhases * Mpi::packSize(short(), comm);
+    size += 3*Mpi::packSize(bool(), comm);
+    if (T::gasPvt_)
+        size += Mpi::packSize(*T::gasPvt_, comm);
+    if (T::oilPvt_)
+        size += Mpi::packSize(*T::oilPvt_, comm);
+    if (T::waterPvt_)
+        size += Mpi::packSize(*T::waterPvt_, comm);
+
+    return size;
+}
+
+template std::size_t
+fluidSystemPackSize<BlackOilFluidSystem<double,BlackOilDefaultIndexTraits>>(Dune::MPIHelper::MPICommunicator comm);
+
+template std::size_t
+fluidSystemPackSize<BlackOilFluidSystem<double,EclAlternativeBlackOilIndexTraits>>(Dune::MPIHelper::MPICommunicator comm);
 
 ////// pack routines
 
@@ -1881,6 +1916,40 @@ void pack(const WellTestConfig& data,
 {
     pack(data.getWells(), buffer, position, comm);
 }
+
+template<class T>
+void packFluidSystem(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    Mpi::pack(T::reservoirTemperature_, buffer, position, comm);
+    Mpi::pack(T::enableDissolvedGas_, buffer, position, comm);
+    Mpi::pack(T::enableVaporizedOil_, buffer, position, comm);
+    Mpi::pack(T::referenceDensity_, buffer, position, comm);
+    Mpi::pack(T::molarMass_, buffer, position, comm);
+    for (const auto& it : T::activeToCanonicalPhaseIdx_)
+        Mpi::pack(it, buffer, position, comm);
+    for (const auto& it : T::canonicalToActivePhaseIdx_)
+        Mpi::pack(it, buffer, position, comm);
+    Mpi::pack(T::isInitialized_, buffer, position, comm);
+
+    Mpi::pack(T::gasPvt_ != nullptr, buffer, position, comm);
+    Mpi::pack(T::oilPvt_ != nullptr, buffer, position, comm);
+    Mpi::pack(T::waterPvt_ != nullptr, buffer, position, comm);
+    if (T::gasPvt_)
+        Mpi::pack(*T::gasPvt_, buffer, position, comm);
+    if (T::oilPvt_)
+        Mpi::pack(*T::oilPvt_, buffer, position, comm);
+    if (T::waterPvt_)
+        Mpi::pack(*T::waterPvt_, buffer, position, comm);
+}
+
+template void
+packFluidSystem<BlackOilFluidSystem<double,BlackOilDefaultIndexTraits>>(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template void
+packFluidSystem<BlackOilFluidSystem<double,EclAlternativeBlackOilIndexTraits>>(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
 
 /// unpack routines
 
@@ -3181,6 +3250,50 @@ void unpack(WellTestConfig& data,
     unpack(ddata, buffer, position, comm);
     data = WellTestConfig(ddata);
 }
+
+template<class T>
+void unpackFluidSystem(std::vector<char>& buffer, int& position,
+                       Dune::MPIHelper::MPICommunicator comm)
+{
+    Mpi::unpack(T::reservoirTemperature_, buffer, position, comm);
+    Mpi::unpack(T::enableDissolvedGas_, buffer, position, comm);
+    Mpi::unpack(T::enableVaporizedOil_, buffer, position, comm);
+    Mpi::unpack(T::referenceDensity_, buffer, position, comm);
+    Mpi::unpack(T::molarMass_, buffer, position, comm);
+    for (auto& it : T::activeToCanonicalPhaseIdx_)
+        Mpi::unpack(it, buffer, position, comm);
+    for (auto& it : T::canonicalToActivePhaseIdx_)
+        Mpi::unpack(it, buffer, position, comm);
+    Mpi::unpack(T::isInitialized_, buffer, position, comm);
+
+    bool gas, oil, water;
+    Mpi::unpack(gas, buffer, position, comm);
+    Mpi::unpack(oil, buffer, position, comm);
+    Mpi::unpack(water, buffer, position, comm);
+    T::gasPvt_.reset();
+    if (gas) {
+        T::gasPvt_.reset(new typename T::GasPvt);
+        Mpi::unpack(*T::gasPvt_, buffer, position, comm);
+    }
+    T::oilPvt_.reset();
+    if (oil) {
+        T::oilPvt_.reset(new typename T::OilPvt);
+        Mpi::unpack(*T::oilPvt_, buffer, position, comm);
+    }
+    T::waterPvt_.reset();
+    if (water) {
+        T::waterPvt_.reset(new typename T::WaterPvt);
+        Mpi::unpack(*T::waterPvt_, buffer, position, comm);
+    }
+}
+
+template void
+unpackFluidSystem<BlackOilFluidSystem<double,BlackOilDefaultIndexTraits>>(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template void
+unpackFluidSystem<BlackOilFluidSystem<double,EclAlternativeBlackOilIndexTraits>>(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
 
 } // end namespace Mpi
 

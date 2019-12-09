@@ -26,6 +26,7 @@
 #include <opm/material/common/Tabulated1DFunction.hpp>
 #include <opm/material/common/IntervalTabulated2DFunction.hpp>
 #include <opm/material/common/UniformXTabulated2DFunction.hpp>
+#include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/ConstantCompressibilityOilPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/ConstantCompressibilityWaterPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/DeadOilPvt.hpp>
@@ -247,6 +248,9 @@ std::size_t packSize(const ConstantCompressibilityWaterPvt<Scalar>& data,
 template<class Scalar>
 std::size_t packSize(const WaterPvtThermal<Scalar>& data, Dune::MPIHelper::MPICommunicator comm);
 
+template<class Scalar, class Traits>
+std::size_t packSize(const BlackOilFluidSystem<Scalar,Traits>& data, Dune::MPIHelper::MPICommunicator comm);
+
 ////// pack routines
 
 template<class T>
@@ -406,6 +410,10 @@ void pack(const ConstantCompressibilityWaterPvt<Scalar>& data,
 
 template<class Scalar>
 void pack(const WaterPvtThermal<Scalar>& data, std::vector<char>& buffer,
+          int& position, Dune::MPIHelper::MPICommunicator comm);
+
+template<class Scalar, class Traits>
+void pack(const BlackOilFluidSystem<Scalar,Traits>& data, std::vector<char>& buffer,
           int& position, Dune::MPIHelper::MPICommunicator comm);
 
 void pack(const char* str, std::vector<char>& buffer, int& position,
@@ -570,6 +578,17 @@ void unpack(ConstantCompressibilityWaterPvt<Scalar>& data, std::vector<char>& bu
 
 void unpack(char* str, std::size_t length, std::vector<char>& buffer, int& position,
             Dune::MPIHelper::MPICommunicator comm);
+
+template<class T>
+std::size_t fluidSystemPackSize(Dune::MPIHelper::MPICommunicator comm);
+
+template<class T>
+void packFluidSystem(std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
+template<class T>
+void unpackFluidSystem(std::vector<char>& buffer, int& position,
+                       Dune::MPIHelper::MPICommunicator comm);
 
 /// prototypes for complex types
 
