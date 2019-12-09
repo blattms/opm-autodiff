@@ -2519,10 +2519,10 @@ private:
             std::vector<char> buffer(size);
             int pos = 0;
             Mpi::packFluidSystem<FluidSystem>(buffer, pos, comm);
-            comm.broadcast(&size, 1, 0);
+            comm.broadcast(&pos, 1, 0);
             comm.broadcast(buffer.data(), pos, 0);
         } else {
-            int size;
+            std::size_t size;
             comm.broadcast(&size, 1, 0);
             std::vector<char> buffer(size);
             comm.broadcast(buffer.data(), size, 0);
