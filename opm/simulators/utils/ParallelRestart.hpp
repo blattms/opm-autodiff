@@ -115,6 +115,7 @@ class Welldims;
 class WellFoamProperties;
 class WellPolymerProperties;
 class WellSegmentDims;
+class WellTracerProperties;
 
 namespace Mpi
 {
@@ -656,6 +657,7 @@ ADD_PACK_PROTOTYPES(WellPolymerProperties)
 ADD_PACK_PROTOTYPES(WellSegmentDims)
 ADD_PACK_PROTOTYPES(WellTestConfig)
 ADD_PACK_PROTOTYPES(WellTestConfig::WTESTWell)
+ADD_PACK_PROTOTYPES(WellTracerProperties)
 
 template<class T>
 const T& packAndSend(const T& in, const auto& comm)

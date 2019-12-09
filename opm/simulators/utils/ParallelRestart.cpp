@@ -38,6 +38,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/VFPProdTable.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Well/WellFoamProperties.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Well/WellPolymerProperties.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/Well/WellTracerProperties.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp>
 #include <opm/parser/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/Aqudims.hpp>
@@ -939,6 +940,12 @@ std::size_t packSize(const WellTestConfig& data,
                      Dune::MPIHelper::MPICommunicator comm)
 {
     return packSize(data.getWells(), comm);
+}
+
+std::size_t packSize(const WellTracerProperties& data,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    return packSize(data.getConcentrations(), comm);
 }
 
 ////// pack routines
@@ -1896,6 +1903,13 @@ void pack(const WellTestConfig& data,
           Dune::MPIHelper::MPICommunicator comm)
 {
     pack(data.getWells(), buffer, position, comm);
+}
+
+void pack(const WellTracerProperties& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.getConcentrations(), buffer, position, comm);
 }
 
 /// unpack routines
@@ -3196,6 +3210,15 @@ void unpack(WellTestConfig& data,
     std::vector<WellTestConfig::WTESTWell> ddata;
     unpack(ddata, buffer, position, comm);
     data = WellTestConfig(ddata);
+}
+
+void unpack(WellTracerProperties& data,
+            std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    WellTracerProperties::ConcentrationMap ddata;
+    unpack(ddata, buffer, position, comm);
+    data = WellTracerProperties(ddata);
 }
 
 #define INSTANTIATE_PACK_VECTOR(T) \
