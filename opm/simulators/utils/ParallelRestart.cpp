@@ -1031,6 +1031,28 @@ std::size_t packSize(const WellConnections& data,
            packSize(data.getConnections(), comm);
 }
 
+std::size_t packSize(const Well::WellProductionProperties& data,
+                     Dune::MPIHelper::MPICommunicator comm)
+{
+    return packSize(data.name, comm) +
+           packSize(data.OilRate, comm) +
+           packSize(data.WaterRate, comm) +
+           packSize(data.GasRate, comm) +
+           packSize(data.LiquidRate, comm) +
+           packSize(data.ResVRate, comm) +
+           packSize(data.BHPLimit, comm) +
+           packSize(data.THPLimit, comm) +
+           packSize(data.BHPH, comm) +
+           packSize(data.THPH, comm) +
+           packSize(data.VFPTableNumber, comm) +
+           packSize(data.ALQValue, comm) +
+           packSize(data.predictionMode, comm) +
+           packSize(data.controlMode, comm) +
+           packSize(data.whistctl_cmode, comm) +
+           packSize(data.whistctl_cmode, comm) +
+           packSize(data.m_productionControls, comm);
+}
+
 ////// pack routines
 
 template<class T>
@@ -2080,6 +2102,29 @@ void pack(const WellConnections& data,
     pack(data.getHeadJ(), buffer, position, comm);
     pack(data.getNumRemoved(), buffer, position, comm);
     pack(data.getConnections(), buffer, position, comm);
+}
+
+void pack(const Well::WellProductionProperties& data,
+          std::vector<char>& buffer, int& position,
+          Dune::MPIHelper::MPICommunicator comm)
+{
+    pack(data.name, buffer, position, comm);
+    pack(data.OilRate, buffer, position, comm);
+    pack(data.WaterRate, buffer, position, comm);
+    pack(data.GasRate, buffer, position, comm);
+    pack(data.LiquidRate, buffer, position, comm);
+    pack(data.ResVRate, buffer, position, comm);
+    pack(data.BHPLimit, buffer, position, comm);
+    pack(data.THPLimit, buffer, position, comm);
+    pack(data.BHPH, buffer, position, comm);
+    pack(data.THPH, buffer, position, comm);
+    pack(data.VFPTableNumber, buffer, position, comm);
+    pack(data.ALQValue, buffer, position, comm);
+    pack(data.predictionMode, buffer, position, comm);
+    pack(data.controlMode, buffer, position, comm);
+    pack(data.whistctl_cmode, buffer, position, comm);
+    pack(data.whistctl_cmode, buffer, position, comm);
+    pack(data.m_productionControls, buffer, position, comm);
 }
 
 /// unpack routines
