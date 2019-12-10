@@ -613,7 +613,7 @@ std::size_t packSize(const IntervalTabulated2DFunction<Scalar>& data,
 template std::size_t packSize(const IntervalTabulated2DFunction<double>& data,
                               Dune::MPIHelper::MPICommunicator comm);
 
-template std::size_t packSize(const std::map<int,IntervalTabulated2DFunction<double>>& data,
+template std::size_t packSize(const std::map<int,IntervalTabulated2DFunction<double>>& data, Dune::MPIHelper::MPICommunicator comm);
 
 template<class Scalar>
 std::size_t packSize(const UniformXTabulated2DFunction<Scalar>& data,
@@ -1673,16 +1673,6 @@ void pack(const IntervalTabulated2DFunction<Scalar>& data, std::vector<char>& bu
 template void pack(const IntervalTabulated2DFunction<double>& data,
                    std::vector<char>& buffer,
                    int& position, Dune::MPIHelper::MPICommunicator comm);
-template
-void pack(const std::vector<IntervalTabulated2DFunction<double>>& data,
-          std::vector<char>& buffer,
-          int& position, Dune::MPIHelper::MPICommunicator comm);
-
-template
-void pack(const std::map<int,IntervalTabulated2DFunction<double>>& data,
-          std::vector<char>& buffer,
-          int& position, Dune::MPIHelper::MPICommunicator comm);
-
 template
 void pack(const std::vector<IntervalTabulated2DFunction<double>>& data,
           std::vector<char>& buffer,
@@ -3663,6 +3653,29 @@ void unpack(WellConnections& data,
     unpack(connections, buffer, position, comm),
 
     data = WellConnections(headI, headJ, numRemoved, connections);
+}
+
+void unpack(Well::WellProductionProperties& data,
+            std::vector<char>& buffer, int& position,
+            Dune::MPIHelper::MPICommunicator comm)
+{
+    unpack(data.name, buffer, position, comm);
+    unpack(data.OilRate, buffer, position, comm);
+    unpack(data.WaterRate, buffer, position, comm);
+    unpack(data.GasRate, buffer, position, comm);
+    unpack(data.LiquidRate, buffer, position, comm);
+    unpack(data.ResVRate, buffer, position, comm);
+    unpack(data.BHPLimit, buffer, position, comm);
+    unpack(data.THPLimit, buffer, position, comm);
+    unpack(data.BHPH, buffer, position, comm);
+    unpack(data.THPH, buffer, position, comm);
+    unpack(data.VFPTableNumber, buffer, position, comm);
+    unpack(data.ALQValue, buffer, position, comm);
+    unpack(data.predictionMode, buffer, position, comm);
+    unpack(data.controlMode, buffer, position, comm);
+    unpack(data.whistctl_cmode, buffer, position, comm);
+    unpack(data.whistctl_cmode, buffer, position, comm);
+    unpack(data.m_productionControls, buffer, position, comm);
 }
 
 void unpack(SpiralICD& data,
