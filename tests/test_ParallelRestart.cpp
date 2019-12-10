@@ -1388,6 +1388,38 @@ BOOST_AUTO_TEST_CASE(WellInjectionProperties)
 }
 
 
+BOOST_AUTO_TEST_CASE(Connection)
+{
+#ifdef HAVE_MPI
+    Opm::Connection val1(Opm::Connection::Direction::Y,
+                         1.0, Opm::Connection::State::SHUT,
+                         2, 3, 4.0, 5.0, 6.0, 7.0, 8.0,
+                         {9, 10, 11}, 12, 13.0, 14.0, true,
+                         15, 16, 17.0);
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
+BOOST_AUTO_TEST_CASE(WellEconProductionLimits)
+{
+#ifdef HAVE_MPI
+    Opm::WellEconProductionLimits val1(1.0, 2.0, 3.0, 4.0, 5.0,
+                                       Opm::WellEconProductionLimits::EconWorkover::CONP,
+                                       true, "test",
+                                       Opm::WellEconProductionLimits::QuantityLimit::POTN,
+                                       6.0,
+                                       Opm::WellEconProductionLimits::EconWorkover::WELL,
+                                       7.0, 8.0, 9.0, 10.0);
+    auto val2 = PackUnpack(val1);
+    BOOST_CHECK(std::get<1>(val2) == std::get<2>(val2));
+    BOOST_CHECK(val1 == std::get<0>(val2));
+#endif
+}
+
+
 bool init_unit_test_func()
 {
     return true;
