@@ -126,6 +126,7 @@ public:
      * \brief Compute all transmissibilities
      *
      * Also, this updates the "thermal half transmissibilities" if energy is enabled.
+     * \param global If true then the update will run on all processes
      */
     void update(bool global)
     {
@@ -143,7 +144,7 @@ public:
 
         // get the ntg values, the ntg values are modified for the cells merged with minpv
         std::vector<double> ntg;
-        minPvFillNtg_(ntg);
+        minPvFillNtg_(ntg, global);
 
         unsigned numElements = elemMapper.size();
 
@@ -898,53 +899,69 @@ private:
         }
     }
 
-    void minPvFillNtg_(std::vector<double>& averageNtg) const
+    void minPvFillNtg_(std::vector<double>& averageNtg, bool global) const
     {
         // compute volume weighted arithmetic average of NTG for
         // cells merged as an result of minpv.
-        const auto& eclState = vanguard_.eclState(false); // this is hit
-        const auto& eclGrid = eclState.getInputGrid();
-
-        const std::vector<double>& ntg =
-            eclState.get3DProperties().getDoubleGridProperty("NTG").getData();
-
-        averageNtg = ntg;
-
-        bool opmfil = eclGrid.getMinpvMode() == Opm::MinpvMode::OpmFIL;
-
-        // just return the unmodified ntg if opmfil is not used
-        if (!opmfil)
-            return;
-
-        const auto& porv = eclState.get3DProperties().getDoubleGridProperty("PORV").getData();
-        const auto& actnum = eclState.get3DProperties().getIntGridProperty("ACTNUM").getData();
+        const auto& comm = vanguard_.grid().comm();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
         const auto& cartDims = cartMapper.cartesianDimensions();
-        assert(dimWorld > 1);
-        const size_t nxny = cartDims[0] * cartDims[1];
-        for (size_t cartesianCellIdx = 0; cartesianCellIdx < ntg.size(); ++cartesianCellIdx) {
-            // use the original ntg values for the inactive cells
-            if (!actnum[cartesianCellIdx])
-                continue;
 
-            // Average properties as long as there exist cells above
-            // that has pore volume less than the MINPV threshold
-            const double cellVolume = eclGrid.getCellVolume(cartesianCellIdx);
-            double ntgCellVolume = ntg[cartesianCellIdx] * cellVolume;
-            double totalCellVolume = cellVolume;
-            int cartesianCellIdxAbove = cartesianCellIdx - nxny;
-            while (cartesianCellIdxAbove >= 0 &&
-                   actnum[cartesianCellIdxAbove] > 0 &&
-                   porv[cartesianCellIdxAbove] < eclGrid.getMinpvVector()[cartesianCellIdxAbove])
+        // This is a computation on the whole cartesian grid and therefore done
+        // on master
+        if (comm.rank() == 0)
+        {
+            const auto& eclState = vanguard_.eclState(true);
+            const auto& eclGrid = eclState.getInputGrid();
+            const std::vector<double>& ntg =
+                eclState.get3DProperties().getDoubleGridProperty("NTG").getData();
+
+            averageNtg = ntg;
+
+            bool opmfil = eclGrid.getMinpvMode() == Opm::MinpvMode::OpmFIL;
+
+            if (opmfil)
             {
-                // Volume weighted arithmetic average of NTG
-                const double cellAboveVolume = eclGrid.getCellVolume(cartesianCellIdxAbove);
-                totalCellVolume += cellAboveVolume;
-                ntgCellVolume += ntg[cartesianCellIdxAbove]*cellAboveVolume;
-                cartesianCellIdxAbove -= nxny;
-            }
+                const auto& porv = eclState.get3DProperties().getDoubleGridProperty("PORV").getData();
+                const auto& actnum = eclState.get3DProperties().getIntGridProperty("ACTNUM").getData();
+                assert(dimWorld > 1);
+                const size_t nxny = cartDims[0] * cartDims[1];
+                for (size_t cartesianCellIdx = 0; cartesianCellIdx < ntg.size(); ++cartesianCellIdx) {
+                    // use the original ntg values for the inactive cells
+                    if (!actnum[cartesianCellIdx])
+                        continue;
 
-            averageNtg[cartesianCellIdx] = ntgCellVolume / totalCellVolume;
+                    // Average properties as long as there exist cells above
+                    // that has pore volume less than the MINPV threshold
+                    const double cellVolume = eclGrid.getCellVolume(cartesianCellIdx);
+                    double ntgCellVolume = ntg[cartesianCellIdx] * cellVolume;
+                    double totalCellVolume = cellVolume;
+                    int cartesianCellIdxAbove = cartesianCellIdx - nxny;
+                    while (cartesianCellIdxAbove >= 0 &&
+                           actnum[cartesianCellIdxAbove] > 0 &&
+                           porv[cartesianCellIdxAbove] < eclGrid.getMinpvVector()[cartesianCellIdxAbove])
+                    {
+                        // Volume weighted arithmetic average of NTG
+                        const double cellAboveVolume = eclGrid.getCellVolume(cartesianCellIdxAbove);
+                        totalCellVolume += cellAboveVolume;
+                        ntgCellVolume += ntg[cartesianCellIdxAbove]*cellAboveVolume;
+                        cartesianCellIdxAbove -= nxny;
+                    }
+
+                    averageNtg[cartesianCellIdx] = ntgCellVolume / totalCellVolume;
+                }
+            }
+        }
+        else
+        {
+            averageNtg.resize(cartDims[0]*cartDims[1]*cartDims[2]);
+        }
+
+        if (global)
+        {
+            // \todo use CpGrid::scatter to get associate the ntg values with cells
+            // There is no need for them to live on the cartesian grid.
+            comm.broadcast(averageNtg.data(), averageNtg.size(), 0);
         }
     }
 
