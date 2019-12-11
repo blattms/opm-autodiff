@@ -307,11 +307,8 @@ public:
                     continue;
 
                 for (const auto& connection: well.getConnections()) {
-                    const size_t i = size_t(connection.getI());
-                    const size_t j = size_t(connection.getJ());
-                    const size_t k = size_t(connection.getK());
-                    const size_t index = simulator_.vanguard().eclState(true).getInputGrid().getGlobalIndex(i, j, k);
-
+                    const auto& cartDims =  simulator_.vanguard().cartesianIndexMapper().cartesianDimensions();
+                    std::size_t index = connection.getI() + cartDims[0] * (connection.getJ() + cartDims[1] * connection.getK());
                     oilConnectionPressures_.emplace(std::make_pair(index, 0.0));
                     waterConnectionSaturations_.emplace(std::make_pair(index, 0.0));
                     gasConnectionSaturations_.emplace(std::make_pair(index, 0.0));
