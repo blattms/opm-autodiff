@@ -599,10 +599,12 @@ private:
 
     Opm::NNC exportNncStructure_(const std::unordered_map<int,int>& cartesianToActive) const
     {
-        std::size_t nx = eclState(false).getInputGrid().getNX();
-        std::size_t ny = eclState(false).getInputGrid().getNY();
-        auto nncData = sortNncAndApplyEditnnc(eclState(false).getInputNNC().data(),
-                                              eclState(false).getInputEDITNNC().data());
+        // Only run on the IO process!
+        assert(0==simulator_.gridView().comm().rank());
+        std::size_t nx = eclState(true).getInputGrid().getNX();
+        std::size_t ny = eclState(true).getInputGrid().getNY();
+        auto nncData = sortNncAndApplyEditnnc(eclState(true).getInputNNC().data(),
+                                              eclState(true).getInputEDITNNC().data());
         const auto& unitSystem = simulator_.vanguard().deck().getActiveUnitSystem();
         std::vector<Opm::NNCdata> outputNnc;
         std::size_t index = 0;
