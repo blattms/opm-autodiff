@@ -428,7 +428,15 @@ public:
     void beginRestart()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
-        bool enableSwatinit = simulator_.vanguard().eclState(false).get3DProperties().hasDeckDoubleGridProperty("SWATINIT"); // this is hit
+        int enableSwatinit = false;
+
+        if (eclIO_.get())
+        {
+            assert(0==simulator_.gridView().comm().rank());
+            enableSwatinit = simulator_.vanguard().eclState(true).get3DProperties().hasDeckDoubleGridProperty("SWATINIT");
+        }
+        simulator_.gridView().comm().broadcast(&enableSwatinit, 1, 0);
+
         std::vector<Opm::RestartKey> solutionKeys{
             {"PRESSURE", Opm::UnitSystem::measure::pressure},
             {"SWAT", Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx))},
