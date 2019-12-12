@@ -148,7 +148,7 @@ public:
 
         unsigned numElements = elemMapper.size();
 
-        extractPermeability_();
+        extractPermeability_(global);
 
         // calculate the axis specific centroids of all elements
         std::array<std::vector<DimVector>, dimWorld> axisCentroids;
@@ -492,7 +492,7 @@ private:
     void updateFromEclState_(bool global)
     {
         std::vector<double> inputTranxData, inputTranyData, inputTranzData;
-        int tranxDeckAssigned{}, tranxDeckAssigned{}, tranzDeckAssigne{};
+        int tranxDeckAssigned{}, tranyDeckAssigned{}, tranzDeckAssigned{};
 
         const auto& comm = vanguard_.grid().comm();
         const auto& gridView = vanguard_.gridView();
@@ -565,7 +565,7 @@ private:
                 int gc2 = std::max(cartMapper.cartesianIndex(c1), cartMapper.cartesianIndex(c2));
 
                 if (gc2 - gc1 == 1) {
-                    if (tranxDeckAssigned())
+                    if (tranxDeckAssigned)
                         // set simulator internal transmissibilities to values from inputTranx
                         trans_[isId] = inputTranxData[gc1];
                     else
@@ -573,7 +573,7 @@ private:
                         trans_[isId] *= inputTranxData[gc1];
                 }
                 else if (gc2 - gc1 == cartDims[0]) {
-                    if (tranyDeckAssigned())
+                    if (tranyDeckAssigned)
                         // set simulator internal transmissibilities to values from inputTrany
                         trans_[isId] = inputTranyData[gc1];
                     else
@@ -581,7 +581,7 @@ private:
                         trans_[isId] *= inputTranyData[gc1];
                 }
                 else if (gc2 - gc1 == cartDims[0]*cartDims[1]) {
-                    if (tranzdeckAssigned())
+                    if (tranzDeckAssigned)
                         // set simulator internal transmissibilities to values from inputTranz
                         trans_[isId] = inputTranzData[gc1];
                     else
@@ -777,9 +777,43 @@ private:
         }
     }
 
-    void extractPermeability_()
+    void extractPermeability_(bool global)
     {
-        const auto& props = vanguard_.eclState(false).get3DProperties(); // this is hit
+        std::vector<double> permxData, permyData, permzData;
+        int hasPermx, hasPermy, hasPermz;
+        const auto& comm = vanguard_.grid().comm();
+        const auto& cartMapper = vanguard_.cartesianIndexMapper();
+        const auto& cartDims = cartMapper.cartesianDimensions();
+        const auto cartesianSize = cartDims[0]*cartDims[1]*cartDims[2];
+
+        if (comm.rank()==0)
+        {
+            const auto& props = vanguard_.eclState(true).get3DProperties(); // this is hit
+            hasPermx = props.hasDeckDoubleGridProperty("PERMX");
+            hasPermy = props.hasDeckDoubleGridProperty("PERMY");
+            hasPermz = props.hasDeckDoubleGridProperty("PERMZ");
+            if (hasPermx)
+                permxData = props.getDoubleGridProperty("PERMX").getData();
+            if (hasPermy)
+                permyData = props.getDoubleGridProperty("PERMY").getData();
+            if (hasPermz)
+                permzData = props.getDoubleGridProperty("PERMZ").getData();
+        }
+        if (global)
+        {
+            comm.broadcast(&hasPermx, 1, 0);
+            comm.broadcast(&hasPermy, 1, 0);
+            comm.broadcast(&hasPermz, 1, 0);
+        }
+        if (comm.rank()!=0)
+        {
+            if (hasPermx)
+                permxData.resize(cartesianSize);
+            if (hasPermy)
+                permyData.resize(cartesianSize);
+            if (hasPermz)
+                permzData.resize(cartesianSize);
+        }
 
         unsigned numElem = vanguard_.gridView().size(/*codim=*/0);
         permeability_.resize(numElem);
@@ -788,15 +822,29 @@ private:
         // provided by eclState are one-per-cell of "uncompressed" grid, whereas the
         // simulation grid might remove a few elements. (e.g. because it is distributed
         // over several processes.)
-        if (props.hasDeckDoubleGridProperty("PERMX")) {
-            const std::vector<double>& permxData =
-                props.getDoubleGridProperty("PERMX").getData();
-            std::vector<double> permyData(permxData);
-            if (props.hasDeckDoubleGridProperty("PERMY"))
-                permyData = props.getDoubleGridProperty("PERMY").getData();
-            std::vector<double> permzData(permxData);
-            if (props.hasDeckDoubleGridProperty("PERMZ"))
-                permzData = props.getDoubleGridProperty("PERMZ").getData();
+        if (hasPermx)
+        {
+            if (global)
+                comm.broadcast(permxData.data(), permxData.size(), 0);
+
+            if (hasPermy)
+            {
+                if (global)
+                    comm.broadcast(permyData.data(), permyData.size(), 0);
+            }
+            else
+            {
+                permyData = permxData;
+            }
+            if (hasPermz)
+            {
+                if (global)
+                    comm.broadcast(permzData.data(), permzData.size(), 0);
+            }
+            else
+            {
+                permzData = permxData;
+            }
 
             for (size_t dofIdx = 0; dofIdx < numElem; ++ dofIdx) {
                 unsigned cartesianElemIdx = vanguard_.cartesianIndex(dofIdx);
