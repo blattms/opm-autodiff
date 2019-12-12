@@ -380,7 +380,7 @@ public:
         }
 
         // potentially overwrite and/or modify  transmissibilities based on input from deck
-        updateFromEclState_();
+        updateFromEclState_(global);
 
         // Create mapping from global to local index
         const size_t cartesianSize = cartMapper.cartesianSize();
@@ -489,12 +489,16 @@ private:
             applyMultipliers_(trans, insideFaceIdx, insideCartElemIdx, transMult);
     }
 
-    void updateFromEclState_()
+    void updateFromEclState_(bool global)
     {
+        std::vector<double> inputTranxData, inputTranyData, inputTranzData;
+        int tranxDeckAssigned{}, tranxDeckAssigned{}, tranzDeckAssigne{};
+
+        const auto& comm = vanguard_.grid().comm();
         const auto& gridView = vanguard_.gridView();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
         const auto& cartDims = cartMapper.cartesianDimensions();
-        const auto& properties = vanguard_.eclState(false).get3DProperties(); // this is hit
+        const auto cartesianSize = cartDims[0]*cartDims[1]*cartDims[2];
 
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
         ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
@@ -502,13 +506,39 @@ private:
         ElementMapper elemMapper(gridView);
 #endif
 
-        const auto& inputTranx = properties.getDoubleGridProperty("TRANX");
-        const auto& inputTrany = properties.getDoubleGridProperty("TRANY");
-        const auto& inputTranz = properties.getDoubleGridProperty("TRANZ");
-        const auto& inputTranxData = properties.getDoubleGridProperty("TRANX").getData();
-        const auto& inputTranyData = properties.getDoubleGridProperty("TRANY").getData();
-        const auto& inputTranzData = properties.getDoubleGridProperty("TRANZ").getData();
+        if (comm.rank()==0)
+        {
+            const auto& properties = vanguard_.eclState(true).get3DProperties();
+            const auto& inputTranx = properties.getDoubleGridProperty("TRANX");
+            const auto& inputTrany = properties.getDoubleGridProperty("TRANY");
+            const auto& inputTranz = properties.getDoubleGridProperty("TRANZ");
+            inputTranxData = properties.getDoubleGridProperty("TRANX").getData();
+            inputTranyData = properties.getDoubleGridProperty("TRANY").getData();
+            inputTranzData = properties.getDoubleGridProperty("TRANZ").getData();
+            assert(inputTranxData.size() == (std::size_t) cartesianSize);
+            assert(inputTranyData.size() == (std::size_t) cartesianSize);
+            assert(inputTranzData.size() == (std::size_t) cartesianSize);
+            tranxDeckAssigned = inputTranx.deckAssigned();
+            tranyDeckAssigned = inputTrany.deckAssigned();
+            tranzDeckAssigned = inputTranz.deckAssigned();
+        }
+        else
+        {
+            inputTranxData.resize(cartesianSize);
+            inputTranyData.resize(cartesianSize);
+            inputTranzData.resize(cartesianSize);
+        }
 
+        if (global) //all processes participate in the computation.
+        {
+            comm.broadcast(inputTranxData.data(), cartesianSize, 0);
+            comm.broadcast(inputTranyData.data(), cartesianSize, 0);
+            comm.broadcast(inputTranzData.data(), cartesianSize, 0);
+            comm.broadcast(inputTranxData.data(), cartesianSize, 0);
+            comm.broadcast(&tranxDeckAssigned, 1, 0);
+            comm.broadcast(&tranyDeckAssigned, 1, 0);
+            comm.broadcast(&tranzDeckAssigned, 1, 0);
+        }
         // compute the transmissibilities for all intersections
         auto elemIt = gridView.template begin</*codim=*/ 0>();
         const auto& elemEndIt = gridView.template end</*codim=*/ 0>();
@@ -535,7 +565,7 @@ private:
                 int gc2 = std::max(cartMapper.cartesianIndex(c1), cartMapper.cartesianIndex(c2));
 
                 if (gc2 - gc1 == 1) {
-                    if (inputTranx.deckAssigned())
+                    if (tranxDeckAssigned())
                         // set simulator internal transmissibilities to values from inputTranx
                         trans_[isId] = inputTranxData[gc1];
                     else
@@ -543,7 +573,7 @@ private:
                         trans_[isId] *= inputTranxData[gc1];
                 }
                 else if (gc2 - gc1 == cartDims[0]) {
-                    if (inputTrany.deckAssigned())
+                    if (tranyDeckAssigned())
                         // set simulator internal transmissibilities to values from inputTrany
                         trans_[isId] = inputTranyData[gc1];
                     else
@@ -551,7 +581,7 @@ private:
                         trans_[isId] *= inputTranyData[gc1];
                 }
                 else if (gc2 - gc1 == cartDims[0]*cartDims[1]) {
-                    if (inputTranz.deckAssigned())
+                    if (tranzdeckAssigned())
                         // set simulator internal transmissibilities to values from inputTranz
                         trans_[isId] = inputTranzData[gc1];
                     else
