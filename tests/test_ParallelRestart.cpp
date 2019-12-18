@@ -1481,6 +1481,24 @@ BOOST_AUTO_TEST_CASE(Segment)
 #endif
 }
 
+BOOST_AUTO_TEST_CASE(VectorOfUnorderedMap)
+{
+#ifdef HAVE_MPI
+    std::vector<std::unordered_map<int,double>> orig;
+    std::unordered_map<int,double> tmp;
+    tmp.emplace(0, 1000.0);
+    tmp.emplace(4, 100.0);
+    tmp.emplace(-1, 30.0);
+    orig.push_back(tmp);
+    for(auto&& pair: tmp)
+        pair.second+=662;
+    orig.push_back(tmp);
+    auto result = PackUnpack(orig);
+    BOOST_CHECK(std::get<1>(result) == std::get<2>(result));
+    BOOST_CHECK(orig == std::get<0>(result));
+#endif
+}
+
 
 bool init_unit_test_func()
 {

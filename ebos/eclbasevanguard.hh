@@ -622,6 +622,7 @@ private:
     Opm::SummaryConfig* eclSummaryConfig_;
 
     Dune::EdgeWeightMethod edgeWeightsMethod_;
+
 };
 
 template <class TypeTag>

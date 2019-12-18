@@ -3788,6 +3788,16 @@ INSTANTIATE_PACK(bool);
 INSTANTIATE_PACK(int);
 #undef INSTANTIATE_PACK
 
+
+template std::size_t packSize(const std::vector<std::unordered_map<int,double> >& data,
+                              Dune::MPIHelper::MPICommunicator comm);
+template void pack(const std::vector<std::unordered_map<int,double> >& data,
+                   std::vector<char>& buffer, int& position,
+                   Dune::MPIHelper::MPICommunicator comm);
+template void unpack(std::vector<std::unordered_map<int,double> >& data,
+                     std::vector<char>& buffer, int& position,
+                     Dune::MPIHelper::MPICommunicator comm);
+
 } // end namespace Mpi
 
 RestartValue loadParallelRestart(const EclipseIO* eclIO, SummaryState& summaryState,

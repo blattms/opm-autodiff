@@ -30,6 +30,8 @@
 #include "eclbasevanguard.hh"
 #include "ecltransmissibility.hh"
 #include "femcpgridcompat.hh"
+#include "transmultstore.hh"
+#include "eclshallowgrid.hh"
 
 #include <opm/grid/CpGrid.hpp>
 #include <opm/grid/cpgrid/GridHelpers.hpp>
@@ -151,7 +153,7 @@ public:
             if (grid_->size(0))
             {
                 globalTrans_.reset(new EclTransmissibility<TypeTag>(*this));
-                globalTrans_->update(false);
+                globalTrans_->update(false, *transMultStore_);
             }
 
             Dune::EdgeWeightMethod edgeWeightsMethod = this->edgeWeightsMethod();
@@ -211,6 +213,7 @@ public:
         cartesianIndexMapper_.reset(new CartesianIndexMapper(*grid_));
 
         this->updateGridView_();
+        transMultStore_->broadcast(grid_->comm()); //broadcast multipiers.
     }
 
     /*!
@@ -254,19 +257,18 @@ public:
         globalTrans_.reset();
     }
 
+    const EclShallowGrid& getEclShallowGrid() const
+    {
+        return eclShallowGrid_;
+    }
+    std::unique_ptr<TransMultStore>&& getTransMultStore()
+    {
+        return std::move(transMultStore_);
+    }
 protected:
     void createGrids_()
     {
-        const auto& gridProps = this->eclState(false).get3DProperties(); // this is hit
-        const std::vector<double>& porv = gridProps.getDoubleGridProperty("PORV").getData();
-
         grid_.reset(new Dune::CpGrid());
-        grid_->processEclipseFormat(&(this->eclState(false).getInputGrid()), // this is hit
-                                    /*isPeriodic=*/false,
-                                    /*flipNormals=*/false,
-                                    /*clipZ=*/false,
-                                    porv,
-                                    this->eclState(false).getInputNNC()); // this is hit
 
         // we use separate grid objects: one for the calculation of the initial condition
         // via EQUIL and one for the actual simulation. The reason is that the EQUIL code
@@ -276,9 +278,30 @@ protected:
         // equilGrid_being a shallow copy only the global view.
         if (mpiRank == 0)
         {
+            const auto& gridProps = this->eclState(true).get3DProperties();
+            const std::vector<double>& porv = gridProps.getDoubleGridProperty("PORV").getData();
+            grid_->processEclipseFormat(&(this->eclState(true).getInputGrid()),
+                                    /*isPeriodic=*/false,
+                                    /*flipNormals=*/false,
+                                    /*clipZ=*/false,
+                                    porv,
+                                    this->eclState(true).getInputNNC());
             equilGrid_.reset(new Dune::CpGrid(*grid_));
             equilCartesianIndexMapper_.reset(new CartesianIndexMapper(*equilGrid_));
+            eclShallowGrid_ = EclShallowGrid(this->eclState(true).getInputGrid());
         }
+        else
+        {
+            EclipseGrid *eclGrid{};
+            std::vector<double> porv;
+            grid_->processEclipseFormat(eclGrid,
+                                        /*isPeriodic=*/false,
+                                        /*flipNormals=*/false,
+                                        /*clipZ=*/false);
+            eclShallowGrid_ = EclShallowGrid(CartesianIndexMapper(grid()).cartesianSize());
+        }
+        eclShallowGrid_.broadcast(grid_->comm());
+        transMultStore_.reset(new TransMultStore(CartesianIndexMapper(grid()).cartesianSize()));
     }
 
     // removing some connection located in inactive grid cells
@@ -302,6 +325,12 @@ protected:
 
     std::unique_ptr<EclTransmissibility<TypeTag> > globalTrans_;
     std::unordered_set<std::string> defunctWellNames_;
+    EclShallowGrid eclShallowGrid_;
+    /// \brief Storage of the transmissibility multipliers.
+    ///
+    /// \warn This will be a nullptr once getTransMultStore
+    /// has bee called (e.g. for moving them into EclTransmissibilies.
+    std::unique_ptr<TransMultStore> transMultStore_;
     int mpiRank;
 };
 

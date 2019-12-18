@@ -28,6 +28,8 @@
 #ifndef EWOMS_ECL_TRANSMISSIBILITY_HH
 #define EWOMS_ECL_TRANSMISSIBILITY_HH
 
+#include "transmultstore.hh"
+
 #include <ebos/nncsorter.hpp>
 
 #include <opm/models/utils/propertysystem.hh>
@@ -97,8 +99,8 @@ class EclTransmissibility
 
 public:
 
-    EclTransmissibility(const Vanguard& vanguard)
-        : vanguard_(vanguard)
+    EclTransmissibility(const Vanguard& vanguard, std::unique_ptr<TransMultStore> transMultStore = {})
+        : vanguard_(vanguard), transMultStore_(std::move(transMultStore))
     {
         const Opm::UnitSystem& unitSystem = vanguard_.deck().getActiveUnitSystem();
         transmissibilityThreshold_  = unitSystem.parse("Transmissibility").getSIScaling() * 1e-6;
@@ -119,23 +121,68 @@ public:
      * either but at least it seems to be much better.
      */
     void finishInit()
-    { update(true); }
-
+    {
+        assert(transMultStore_);
+        update(true, *transMultStore_);
+    }
 
     /*!
      * \brief Compute all transmissibilities
      *
      * Also, this updates the "thermal half transmissibilities" if energy is enabled.
-     * \param global If true then the update will run on all processes
+     * Transmissibility multipliers will be calculated and stored if global is false.
      */
     void update(bool global)
     {
+        update(global, *transMultStore_);
+    }
+
+    /*!
+     * \brief Compute all transmissibilities
+     *
+     * Also, this updates the "thermal half transmissibilities" if energy is enabled.
+     * Transmissibility multipliers will be calculated and stored if global is false.
+     * In a serial run they are always recalculated, in a parallel run when argument
+     * global is true from the second call with these parameters on.
+     * and if global is false and there was no
+     * \param global If true then the update will run on all processes
+     * \param transMultStore Storage object for the transmissibility multipliers.
+     *        Those will computed on rank 0 and should be broadcasted using
+     *        TransMultStore::broadcast. The vanguard will path its own object here
+     *        during the setup for the loadbalancing (global==false in this case).
+     */
+    void update(bool global, TransMultStore& transMultStore)
+    {
         const auto& gridView = vanguard_.gridView();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
-        const auto& eclState = vanguard_.eclState(false); // this is hit
-        const auto& eclGrid = eclState.getInputGrid();
         const auto& cartDims = cartMapper.cartesianDimensions();
-        auto& transMult = eclState.getTransMult();
+        const Opm::TransMult* transMult{};
+        const auto& comm = vanguard_.grid().comm();
+        const auto& eclGrid = vanguard_.getEclShallowGrid();
+        bool cached = false; // true on the first real parallel run with global == true
+
+        if ( comm.rank() == 0)
+        {
+            const auto& eclState = vanguard_.eclState(true);
+            transMult = &(eclState.getTransMult());
+        }
+
+        if (global && comm.size() > 1)
+            ++updateCount_;
+
+        if ( comm.size() > 1)
+        {
+            if ( updateCount_ > 1) // There was a geomodifier Event
+            {
+                if ( comm.rank() == 0)
+                    calculateMultipliers_(*transMult, transMultStore);
+                transMultStore.broadcast(comm);
+                assert(global);
+            }
+            if (global)
+                cached=true;
+        }
+
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
         ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
 #else
@@ -341,41 +388,20 @@ public:
                 // The MULTZ needs special case if the option is ALL
                 // Then the smallest multiplier is applied.
                 // Default is to apply the top and bottom multiplier
-                bool useSmallestMultiplier = eclGrid.getMultzOption() == Opm::PinchMode::ModeEnum::ALL;
-                if (useSmallestMultiplier)
-                    applyAllZMultipliers_(trans, insideFaceIdx, insideCartElemIdx, outsideCartElemIdx, transMult, cartDims);
+                double multiplier;
+
+                if (cached)
+                {
+                    multiplier = transMultStore.getMultiplier(insideCartElemIdx, outsideCartElemIdx);
+                }
                 else
-                    applyMultipliers_(trans, insideFaceIdx, insideCartElemIdx, transMult);
-                // ... and outside elements
-                applyMultipliers_(trans, outsideFaceIdx, outsideCartElemIdx, transMult);
-
-                // apply the region multipliers (cf. the MULTREGT keyword)
-                Opm::FaceDir::DirEnum faceDir;
-                switch (insideFaceIdx) {
-                case 0:
-                case 1:
-                    faceDir = Opm::FaceDir::XPlus;
-                    break;
-
-                case 2:
-                case 3:
-                    faceDir = Opm::FaceDir::YPlus;
-                    break;
-
-                case 4:
-                case 5:
-                    faceDir = Opm::FaceDir::ZPlus;
-                    break;
-
-                default:
-                    throw std::logic_error("Could not determine a face direction");
+                {
+                    assert(comm.rank()==0);
+                    multiplier = calculateMultiplier_(insideFaceIdx, outsideFaceIdx, insideCartElemIdx, outsideCartElemIdx, *transMult,
+                                                      transMultStore, cartDims, eclGrid.getMultzOption());
                 }
 
-                trans *= transMult.getRegionMultiplier(insideCartElemIdx,
-                                                       outsideCartElemIdx,
-                                                       faceDir);
-
-                trans_[isId_(elemIdx, outsideElemIdx)] = trans;
+                trans_[isId_(elemIdx, outsideElemIdx)] = trans * multiplier;
             }
         }
 
@@ -442,6 +468,88 @@ public:
 
 private:
 
+    double calculateMultiplier_(int insideFaceIdx, int outsideFaceIdx, std::size_t insideCartElemIdx,
+                                std::size_t outsideCartElemIdx, const Opm::TransMult& transMult,
+                                TransMultStore& transMultStore,
+                                std::array<int, 3> cartDims, const Opm::PinchMode::ModeEnum& mode)
+    {
+        double multiplier = 1.0;
+        if (mode == Opm::PinchMode::ModeEnum::ALL)
+            applyAllZMultipliers_(multiplier, insideFaceIdx, insideCartElemIdx, outsideCartElemIdx, transMult, cartDims);
+        else
+            applyMultipliers_(multiplier, insideFaceIdx, insideCartElemIdx, transMult);
+        // ... and outside elements
+        applyMultipliers_(multiplier, outsideFaceIdx, outsideCartElemIdx, transMult);
+
+        // apply the region multipliers (cf. the MULTREGT keyword)
+        Opm::FaceDir::DirEnum faceDir;
+        switch (insideFaceIdx) {
+        case 0:
+        case 1:
+            faceDir = Opm::FaceDir::XPlus;
+            break;
+
+        case 2:
+        case 3:
+            faceDir = Opm::FaceDir::YPlus;
+            break;
+
+        case 4:
+        case 5:
+            faceDir = Opm::FaceDir::ZPlus;
+            break;
+
+        default:
+            throw std::logic_error("Could not determine a face direction");
+        }
+
+        multiplier *= transMult.getRegionMultiplier(insideCartElemIdx,
+                                                    outsideCartElemIdx,
+                                                    faceDir);
+        transMultStore.setMultiplier(insideCartElemIdx, outsideCartElemIdx, multiplier);
+        return multiplier;
+    }
+    void calculateMultipliers_(const Opm::TransMult& transMult, TransMultStore& transMultStore)
+    {
+        const auto& gridView = vanguard_.equilGrid().leafGridView();
+        const auto& cartMapper = vanguard_.equilCartesianIndexMapper();
+        const auto& cartDims = cartMapper.cartesianDimensions();
+        const auto& eclGrid = vanguard_.getEclShallowGrid();
+#if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
+        ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
+#else
+        ElementMapper elemMapper(gridView);
+#endif
+        auto elemIt = gridView.template begin</*codim=*/ 0>();
+        const auto& elemEndIt = gridView.template end</*codim=*/ 0>();
+        for (; elemIt != elemEndIt; ++elemIt) {
+            const auto& elem = *elemIt;
+            unsigned elemIdx = elemMapper.index(elem);
+
+            auto isIt = gridView.ibegin(elem);
+            const auto& isEndIt = gridView.iend(elem);
+
+            for (; isIt != isEndIt; ++ isIt) {
+                // store intersection, this might be costly
+                const auto& intersection = *isIt;
+
+                // only deal with real intersection
+                if (intersection.boundary() ||!intersection.neighbor())
+                    // elements can be on process boundaries, i.e. they are not on the
+                    // domain boundary yet they don't have neighbors.
+                    continue;
+
+                const auto& outsideElem = intersection.outside();
+                int insideFaceIdx  = intersection.indexInInside();
+                int outsideFaceIdx = intersection.indexInOutside();
+                unsigned outsideElemIdx = elemMapper.index(outsideElem);
+                unsigned insideCartElemIdx = cartMapper.cartesianIndex(elemIdx);
+                unsigned outsideCartElemIdx = cartMapper.cartesianIndex(outsideElemIdx);
+                calculateMultiplier_(insideFaceIdx, outsideFaceIdx, insideCartElemIdx, outsideCartElemIdx, transMult,
+                                     transMultStore, cartDims, eclGrid.getMultzOption());
+            }
+        }
+    }
     void removeSmallNonCartesianTransmissibilities_()
     {
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
@@ -937,6 +1045,7 @@ private:
         case 2: // front
             trans *= transMult.getMultiplier(cartElemIdx, Opm::FaceDir::YMinus);
             break;
+
         case 3: // back
             trans *= transMult.getMultiplier(cartElemIdx, Opm::FaceDir::YPlus);
             break;
@@ -1051,7 +1160,16 @@ private:
     std::map<std::pair<unsigned, unsigned>, Scalar> thermalHalfTransBoundary_;
     Opm::ConditionalStorage<enableEnergy,
                             std::unordered_map<std::uint64_t, Scalar> > thermalHalfTrans_;
+    static std::size_t updateCount_;
+    /// \brief Storage offset of the cartesian transmissility multipliers.
+    ///
+    /// Will only be used after the loadbalancing has happened. I.e. if this
+    /// class is used by EclProblem.
+    std::unique_ptr<TransMultStore> transMultStore_;
 };
+
+template <class TypeTag>
+std::size_t EclTransmissibility<TypeTag>::updateCount_ = 0;
 
 } // namespace Opm
 

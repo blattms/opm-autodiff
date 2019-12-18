@@ -595,7 +595,7 @@ public:
      */
     EclProblem(Simulator& simulator)
         : ParentType(simulator)
-        , transmissibilities_(simulator.vanguard())
+        , transmissibilities_(simulator.vanguard(), simulator.vanguard().getTransMultStore())
         , thresholdPressures_(simulator)
         , wellModel_(simulator)
         , aquiferModel_(simulator)
