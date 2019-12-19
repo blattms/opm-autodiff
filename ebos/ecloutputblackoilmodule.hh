@@ -868,7 +868,8 @@ public:
                     const size_t j = size_t(connection.getJ());
                     const size_t k = size_t(connection.getK());
 
-                    const size_t index = simulator_.vanguard().eclState(true).getInputGrid().getGlobalIndex(i, j, k);
+                    const auto& cartDims =  simulator_.vanguard().cartesianIndexMapper().cartesianDimensions();
+                    std::size_t index = i + cartDims[0] * j + cartDims[1] * k;
                     auto& connectionData = wellData.connections[count];
                     connectionData.index = index;
                     count++;
