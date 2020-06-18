@@ -269,8 +269,8 @@ private:
     {
         ElementContext elemCtx(this->simulator_);
         const auto& vanguard = this->simulator_.vanguard();
-        auto elemIt = vanguard.gridView().template begin</*codim=*/0>();
-        const auto& elemEndIt = vanguard.gridView().template end</*codim=*/0>();
+        auto elemIt = vanguard.gridView().template begin</*codim=*/0, Dune::Interior_Partition>();
+        const auto& elemEndIt = vanguard.gridView().template end</*codim=*/0, Dune::Interior_Partition>();
         std::vector<Scalar> B_avg(numEq,1.0);
         for (; elemIt != elemEndIt; ++elemIt) {
             const auto& elem = *elemIt;
