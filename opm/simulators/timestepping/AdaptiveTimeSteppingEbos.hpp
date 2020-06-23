@@ -243,12 +243,6 @@ namespace Opm {
                     //substepReport = solver.step(substepTimer);
                     prepareEbos_(ebosSimulator, substepTimer);
                     substepReport.converged = ebosSimulator.model().newtonMethod().apply();
-                    ebosSimulator.problem().endTimeStep();
-
-                    if (solverVerbose_) {
-                        // report number of linear iterations
-                        OpmLog::debug("Overall linear iterations used: " + std::to_string(substepReport.total_linear_iterations));
-                    }
                 }
                 catch (const Opm::TooManyIterations& e) {
                     substepReport = solver.failureReport();
@@ -293,6 +287,13 @@ namespace Opm {
                 report += substepReport;
 
                 if (substepReport.converged) {
+                    ebosSimulator.problem().endTimeStep();
+
+                    if (solverVerbose_) {
+                        // report number of linear iterations
+                        OpmLog::debug("Overall linear iterations used: " + std::to_string(substepReport.total_linear_iterations));
+                    }
+
                     // advance by current dt
                     ++substepTimer;
 
