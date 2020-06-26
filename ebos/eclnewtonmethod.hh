@@ -165,6 +165,8 @@ public:
         Scalar sumPv = 0.0;
         errorPvFraction_ = 0.0;
         const Scalar dt = this->simulator_.timeStepSize();
+        std::vector<double> maxCoeff(numEq, std::numeric_limits< Scalar >::lowest() );
+
         for (unsigned dofIdx = 0; dofIdx < currentResidual.size(); ++dofIdx) {
             // do not consider auxiliary DOFs for the error
             if (dofIdx >= this->model().numGridDof()
@@ -190,6 +192,7 @@ public:
             Scalar dofVolume = this->model().dofTotalVolume(dofIdx);
 
             for (unsigned eqIdx = 0; eqIdx < r.size(); ++eqIdx) {
+                double factor = 1.0;
                 Scalar CNV = r[eqIdx] * dt * avgBFactors_[eqIdx] / pvValue;
                 Scalar MB = r[eqIdx] * avgBFactors_[eqIdx];
 
@@ -198,8 +201,10 @@ public:
                 if (GET_PROP_VALUE(TypeTag, UseVolumetricResidual)) {
                     CNV *= dofVolume;
                     MB *= dofVolume;
+                    factor = dofVolume;
                 }
 
+                maxCoeff[eqIdx] = std::max(maxCoeff[eqIdx], std::abs(r[eqIdx])*factor/pvValue);
                 this->error_ = Opm::max(std::abs(CNV), this->error_);
 
                 if (std::abs(CNV) > this->tolerance_)
@@ -211,8 +216,18 @@ public:
                 errorPvFraction_ += pvValue;
         }
 
+        this->comm_.max(maxCoeff.data(), maxCoeff.size());
         // take the other processes into account
         this->error_ = this->comm_.max(this->error_);
+        std::vector<double> CNVV(numEq);
+        this->error_ = std::numeric_limits< Scalar >::lowest();
+
+        for (unsigned eqIdx = 0; eqIdx < numEq; ++eqIdx)
+        {
+            CNVV[eqIdx] = avgBFactors_[eqIdx] * dt * maxCoeff[eqIdx];
+            this->error_ = std::max(this->error_ , CNVV[eqIdx]);
+        }
+
         componentSumError = this->comm_.sum(componentSumError);
         sumPv = this->comm_.sum(sumPv);
         errorPvFraction_ = this->comm_.sum(errorPvFraction_);
