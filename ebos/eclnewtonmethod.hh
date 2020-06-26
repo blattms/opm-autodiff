@@ -99,6 +99,7 @@ public:
 
         numStrictIterations_ = EWOMS_GET_PARAM(TypeTag, int, EclNewtonStrictIterations);
 
+        minIterations_ = 1;//EWOMS_GET_PARAM(TypeTag, int, EclNewtonMinIterations);
         avgBFactors_.resize(numEq, 0.0);
     }
 
@@ -143,6 +144,8 @@ public:
         //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
         else
             converged = converged && (this->error_ <= this->tolerance() && errorSum_ <= sumTolerance_);
+        if (this->numIterations() < minIterations_)
+            converged = false;
         return converged;
     }
 
@@ -326,6 +329,7 @@ private:
 
     std::vector<Scalar> avgBFactors_;
     int numStrictIterations_;
+    int minIterations_;
 };
 } // namespace Opm
 
