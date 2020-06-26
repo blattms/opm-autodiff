@@ -184,6 +184,7 @@ public:
         : simulator_(simulator)
         , collectToIORank_(simulator_.vanguard())
         , eclOutputModule_(simulator, collectToIORank_)
+        , totalNumberOfNewtonIterations_()
     {
         if (collectToIORank_.isIORank()) {
             eclIO_.reset(new Opm::EclipseIO(simulator_.vanguard().eclState(),
