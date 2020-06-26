@@ -135,17 +135,15 @@ public:
      */
     bool converged() const
     {
-        bool wellConverged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
-
-        if (this->numIterations() > numStrictIterations_);
-            wellConverged = true;
+        bool converged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
 
         if (errorPvFraction_ < relaxedMaxPvFraction_)
-            return (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
+            converged = converged &&  (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_);
         // else if (this->numIterations() > numStrictIterations_)
         //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
-
-        return this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_;
+        else
+            converged = converged && (this->error_ <= this->tolerance() && errorSum_ <= sumTolerance_);
+        return converged;
     }
 
     void preSolve_(const SolutionVector& currentSolution  OPM_UNUSED,
