@@ -31,6 +31,7 @@
 #include <opm/models/blackoil/blackoilnewtonmethod.hh>
 #include <opm/models/utils/signum.hh>
 #include <opm/common/OpmLog/OpmLog.hpp>
+#include <opm/simulators/flow/NonlinearSolverEbos.hpp>
 
 
 #include <opm/material/common/Unused.hpp>
@@ -42,7 +43,6 @@ NEW_PROP_TAG(EclNewtonStrictIterations);
 NEW_PROP_TAG(EclNewtonRelaxedVolumeFraction);
 NEW_PROP_TAG(EclNewtonSumToleranceExponent);
 NEW_PROP_TAG(EclNewtonRelaxedTolerance);
-
 END_PROPERTIES
 
 namespace Opm {
@@ -94,11 +94,18 @@ public:
         errorPvFraction_ = 1.0;
         relaxedMaxPvFraction_ = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonRelaxedVolumeFraction);
 
-        sumTolerance_ = 0.0; // this gets determined in the error calculation proceedure
+        // if ( !EWOMS_PARAM_IS_SET(TypeTag, Scalar, EclNewtonSumTolerance) )
+        //     eclSumTolerance_ = EWOMS_GET_PARAM(TypeTag, Scalar, ToleranceMb);
+        // else
+        // {
+        //     if ( EWOMS_PARAM_IS_SET(TypeTag, Scalar, ToleranceMb) )
+        //         OpmLog::debug("Both ToleranceMb and EclNewtonSumTolerance are set. Will use the latter");
+            eclSumTolerance_ = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumTolerance);
+        //        }
         relaxedTolerance_ = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonRelaxedTolerance);
 
         numStrictIterations_ = EWOMS_GET_PARAM(TypeTag, int, EclNewtonStrictIterations);
-
+        minIterations_ = 1;//EWOMS_GET_PARAM(TypeTag, int, EclNewtonMinIterations);
         avgBFactors_.resize(numEq, 0.0);
     }
 
@@ -135,17 +142,17 @@ public:
      */
     bool converged() const
     {
-        bool wellConverged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
-
-        if (this->numIterations() > numStrictIterations_);
-            wellConverged = true;
+        bool converged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
 
         if (errorPvFraction_ < relaxedMaxPvFraction_)
-            return (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
+            converged = converged &&  (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_);
         // else if (this->numIterations() > numStrictIterations_)
         //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
-
-        return this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_;
+        else
+            converged = converged && (this->error_ <= this->tolerance() && errorSum_ <= sumTolerance_);
+        if (this->numIterations() < minIterations_)
+            converged = false;
+        return converged;
     }
 
     void preSolve_(const SolutionVector& currentSolution  OPM_UNUSED,
@@ -165,6 +172,8 @@ public:
         Scalar sumPv = 0.0;
         errorPvFraction_ = 0.0;
         const Scalar dt = this->simulator_.timeStepSize();
+        std::vector<double> maxCoeff(numEq, std::numeric_limits< Scalar >::lowest() );
+        
         for (unsigned dofIdx = 0; dofIdx < currentResidual.size(); ++dofIdx) {
             // do not consider auxiliary DOFs for the error
             if (dofIdx >= this->model().numGridDof()
@@ -190,6 +199,7 @@ public:
             Scalar dofVolume = this->model().dofTotalVolume(dofIdx);
 
             for (unsigned eqIdx = 0; eqIdx < r.size(); ++eqIdx) {
+                double factor = 1.0;
                 Scalar CNV = r[eqIdx] * dt * avgBFactors_[eqIdx] / pvValue;
                 Scalar MB = r[eqIdx] * avgBFactors_[eqIdx];
 
@@ -198,8 +208,10 @@ public:
                 if (GET_PROP_VALUE(TypeTag, UseVolumetricResidual)) {
                     CNV *= dofVolume;
                     MB *= dofVolume;
+                    factor = dofVolume;
                 }
-
+                
+                maxCoeff[eqIdx] = std::max(maxCoeff[eqIdx], r[eqIdx]*factor/pvValue);
                 this->error_ = Opm::max(std::abs(CNV), this->error_);
 
                 if (std::abs(CNV) > this->tolerance_)
@@ -211,8 +223,18 @@ public:
                 errorPvFraction_ += pvValue;
         }
 
+        this->comm_.max(maxCoeff.data(), maxCoeff.size());
         // take the other processes into account
         this->error_ = this->comm_.max(this->error_);
+        std::vector<double> CNVV(numEq);
+        this->error_ = std::numeric_limits< Scalar >::lowest();
+
+        for (unsigned eqIdx = 0; eqIdx < numEq; ++eqIdx)
+        {
+            CNVV[eqIdx] = avgBFactors_[eqIdx] * dt * maxCoeff[eqIdx];
+            this->error_ = std::max(this->error_ , CNVV[eqIdx]);
+        }
+
         componentSumError = this->comm_.sum(componentSumError);
         sumPv = this->comm_.sum(sumPv);
         errorPvFraction_ = this->comm_.sum(errorPvFraction_);
@@ -228,9 +250,8 @@ public:
 
         // scale the tolerance for the total error with the pore volume. by default, the
         // exponent is 1/3, i.e., cubic root.
-        Scalar x = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumTolerance);
-        Scalar y = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumToleranceExponent);
-        sumTolerance_ = x;//*std::pow(sumPv, y);
+        //Scalar y = EWOMS_GET_PARAM(TypeTag, Scalar, EclNewtonSumToleranceExponent);
+        sumTolerance_ = eclSumTolerance_; //*std::pow(sumPv, y);
 
         this->endIterMsg() << " (max: " << this->tolerance_ << ", violated for " << errorPvFraction_*100 << "% of the pore volume), aggegate error: " << errorSum_ << " (max: " << sumTolerance_ << ")";
 
@@ -310,9 +331,11 @@ private:
     Scalar relaxedMaxPvFraction_;
 
     Scalar sumTolerance_;
+    Scalar eclSumTolerance_;
 
     std::vector<Scalar> avgBFactors_;
     int numStrictIterations_;
+    int minIterations_;
 };
 } // namespace Opm
 
