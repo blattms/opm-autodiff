@@ -167,6 +167,7 @@ public:
         errorPvFraction_ = 0.0;
         const Scalar dt = this->simulator_.timeStepSize();
         std::vector<Scalar> maxCoeff(numEq, std::numeric_limits< Scalar >::lowest() );
+        std::vector<Scalar> rSum(numEq, 0.0 );
 
         for (unsigned dofIdx = 0; dofIdx < currentResidual.size(); ++dofIdx) {
             // do not consider auxiliary DOFs for the error
@@ -196,6 +197,7 @@ public:
                 double factor = 1.0;
                 Scalar CNV = r[eqIdx] * dt * avgBFactors_[eqIdx] / pvValue;
                 Scalar MB = r[eqIdx] * avgBFactors_[eqIdx];
+                Scalar R = r[eqIdx];
 
                 // in the case of a volumetric formulation, the residual in the above is
                 // per cubic meter
@@ -203,8 +205,9 @@ public:
                     CNV *= dofVolume;
                     MB *= dofVolume;
                     factor = dofVolume;
+                    R *= dofVolume;
                 }
-
+                rSum[eqIdx] += R;
                 maxCoeff[eqIdx] = std::max(maxCoeff[eqIdx], std::abs(r[eqIdx])*factor/pvValue);
                 this->error_ = Opm::max(std::abs(CNV), this->error_);
 
@@ -220,7 +223,8 @@ public:
         this->comm_.max(maxCoeff.data(), maxCoeff.size());
         // take the other processes into account
         this->error_ = this->comm_.max(this->error_);
-        std::cout <<"old CNV error "<<this->error_<<" tolerance="<<this->tolerance_<<std::endl;
+        this->comm_.sum(rSum.data(), rSum.size());
+        sumPv = this->comm_.sum(sumPv);
         std::vector<double> CNVV(numEq);
         this->error_ = std::numeric_limits< Scalar >::lowest();
         this->error_ = 0;
@@ -229,21 +233,23 @@ public:
         {
             CNVV[eqIdx] = avgBFactors_[eqIdx] * dt * maxCoeff[eqIdx];
             this->error_ = std::max(this->error_ , CNVV[eqIdx]);
+            componentSumError[eqIdx] = std::abs(avgBFactors_[eqIdx] * rSum[eqIdx]) * dt
+                / sumPv;
         }
 
-        std::cout <<"new CNV error "<<this->error_;
-        int ii=0;
-        for(auto cnv: CNVV)
-            std::cout<<" CNV["<<ii<<"]="<<CNVV[ii++];
-        std::cout<<std::endl;
-        componentSumError = this->comm_.sum(componentSumError);
-        sumPv = this->comm_.sum(sumPv);
         errorPvFraction_ = this->comm_.sum(errorPvFraction_);
-
-        componentSumError /= sumPv;
-        componentSumError *= dt;
-
         errorPvFraction_ /= sumPv;
+
+        //if (this->verbose_())
+        {
+            int ii=0;
+            for(auto mb: componentSumError)
+                std::cout<<" MB["<<ii++<<"]="<<std::abs(mb);
+            ii=0;
+            for(auto cnv: CNVV)
+                std::cout<<" CNV["<<ii++<<"]="<<cnv;
+            std::cout<<std::endl;
+        }
 
         errorSum_ = 0;
         for (unsigned eqIdx = 0; eqIdx < numEq; ++eqIdx)
