@@ -99,7 +99,6 @@ public:
 
         numStrictIterations_ = EWOMS_GET_PARAM(TypeTag, int, EclNewtonStrictIterations);
 
-        minIterations_ = 1;//EWOMS_GET_PARAM(TypeTag, int, EclNewtonMinIterations);
         avgBFactors_.resize(numEq, 0.0);
     }
 
@@ -143,14 +142,11 @@ public:
             wellConverged = true;
 
         if (errorPvFraction_ < relaxedMaxPvFraction_)
-            converged = (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
+            return (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
         // else if (this->numIterations() > numStrictIterations_)
         //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
         else
-            converged = (this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_);
-        if (this->numIterations() < minIterations_)
-            converged = false;
-        return converged;
+            return (this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_);
     }
 
     void preSolve_(const SolutionVector& currentSolution  OPM_UNUSED,
@@ -340,7 +336,6 @@ private:
 
     std::vector<Scalar> avgBFactors_;
     int numStrictIterations_;
-    int minIterations_;
 };
 } // namespace Opm
 
