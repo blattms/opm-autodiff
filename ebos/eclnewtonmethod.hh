@@ -220,8 +220,10 @@ public:
         this->comm_.max(maxCoeff.data(), maxCoeff.size());
         // take the other processes into account
         this->error_ = this->comm_.max(this->error_);
+        std::cout <<"old CNV error "<<this->error_<<" tolerance="<<this->tolerance_<<std::endl;
         std::vector<double> CNVV(numEq);
         this->error_ = std::numeric_limits< Scalar >::lowest();
+        this->error_ = 0;
 
         for (unsigned eqIdx = 0; eqIdx < numEq; ++eqIdx)
         {
@@ -229,6 +231,11 @@ public:
             this->error_ = std::max(this->error_ , CNVV[eqIdx]);
         }
 
+        std::cout <<"new CNV error "<<this->error_;
+        int ii=0;
+        for(auto cnv: CNVV)
+            std::cout<<" CNV["<<ii<<"]="<<CNVV[ii++];
+        std::cout<<std::endl;
         componentSumError = this->comm_.sum(componentSumError);
         sumPv = this->comm_.sum(sumPv);
         errorPvFraction_ = this->comm_.sum(errorPvFraction_);
