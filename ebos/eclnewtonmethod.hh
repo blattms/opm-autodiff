@@ -136,14 +136,18 @@ public:
      */
     bool converged() const
     {
-        bool converged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
+        bool wellConverged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
+        bool converged{};
+
+        if (this->numIterations() > numStrictIterations_);
+            wellConverged = true;
 
         if (errorPvFraction_ < relaxedMaxPvFraction_)
-            converged = converged &&  (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_);
+            converged = (this->error_ < relaxedTolerance_ && wellConverged && errorSum_ < sumTolerance_) ;
         // else if (this->numIterations() > numStrictIterations_)
         //     return (this->error_ < relaxedTolerance_ && errorSum_ < sumTolerance_) ;
         else
-            converged = converged && (this->error_ <= this->tolerance() && errorSum_ <= sumTolerance_);
+            converged = (this->error_ <= this->tolerance() && wellConverged && errorSum_ <= sumTolerance_);
         if (this->numIterations() < minIterations_)
             converged = false;
         return converged;
