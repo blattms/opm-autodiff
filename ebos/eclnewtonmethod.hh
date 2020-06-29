@@ -166,7 +166,7 @@ public:
         Scalar sumPv = 0.0;
         errorPvFraction_ = 0.0;
         const Scalar dt = this->simulator_.timeStepSize();
-        std::vector<double> maxCoeff(numEq, std::numeric_limits< Scalar >::lowest() );
+        std::vector<Scalar> maxCoeff(numEq, std::numeric_limits< Scalar >::lowest() );
 
         for (unsigned dofIdx = 0; dofIdx < currentResidual.size(); ++dofIdx) {
             // do not consider auxiliary DOFs for the error
