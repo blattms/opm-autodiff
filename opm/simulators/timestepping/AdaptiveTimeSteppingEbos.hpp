@@ -239,10 +239,20 @@ namespace Opm {
 
                 SimulatorReportSingle substepReport;
                 std::string causeOfFailure = "";
+                auto& newtonSolver = ebosSimulator.model().newtonMethod();
                 try {
                     //substepReport = solver.step(substepTimer);
+                    auto startLinearIteration = newtonSolver.numLinearIterations();
                     prepareEbos_(ebosSimulator, substepTimer);
-                    substepReport.converged = ebosSimulator.model().newtonMethod().apply();
+                    substepReport.converged = newtonSolver.apply();
+                    substepReport.total_newton_iterations = newtonSolver.numIterations();
+                    substepReport.total_linearizations = newtonSolver.numIterations()+1;
+                    substepReport.total_linear_iterations = newtonSolver.numLinearIterations()
+                    - startLinearIteration;
+                    //substepReport.total_well_iterations = newtonSolver.numIterations();
+                    // There are a lot of timer in newtonmethod.hh disregarded, still.
+                    substepReport.assemble_time = newtonSolver.linearizeTimer().realTimeElapsed();
+                    substepReport.linear_solve_time = newtonSolver.solveTimer().realTimeElapsed();
                 }
                 catch (const Opm::TooManyIterations& e) {
                     substepReport = solver.failureReport();
