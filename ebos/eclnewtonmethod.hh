@@ -138,7 +138,7 @@ public:
         bool wellConverged = this->simulator_.problem().wellModel().hasWellConverged(avgBFactors_);
         bool converged{};
 
-        if (this->numIterations() > numStrictIterations_);
+        if (this->numIterations() > numStrictIterations_)
             wellConverged = true;
 
         if (errorPvFraction_ < relaxedMaxPvFraction_)
