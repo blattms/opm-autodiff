@@ -668,10 +668,22 @@ namespace Opm
         }
 
         // duneD
-        Dune::UMFPack<DiagMatWell> umfpackMatrix(duneD_, 0);
-        double *Dvals = umfpackMatrix.getInternalMatrix().getValues();
-        int *Dcols = umfpackMatrix.getInternalMatrix().getColStart();
-        int *Drows = umfpackMatrix.getInternalMatrix().getRowIndex();
+        // Dune::UMFPack<DiagMatWell> umfpackMatrix(duneD_, 0);
+        // double *Dvals = umfpackMatrix.getInternalMatrix().getValues();
+        // int *Dcols = umfpackMatrix.getInternalMatrix().getColStart();
+        // int *Drows = umfpackMatrix.getInternalMatrix().getRowIndex();
+
+        umfpack.reset(new Dune::UMFPack<DiagMatWell>());
+        // umfpack.reset(new Dune::UMFPack<DiagMatWell>(duneD_));
+
+        // umfpack.reset(Dune::UMFPack<DiagMatWell>());
+        // umfpack.reset(Dune::UMFPack<DiagMatWell>(duneD_));
+
+        // umfpack = std::make_shared(new Dune::UMFPack<DiagMatWell>());
+        // umfpack = std::make_shared(new Dune::UMFPack<DiagMatWell>(duneD_));
+
+        // umfpack = std::make_shared(Dune::UMFPack<DiagMatWell>());
+        // umfpack = std::make_shared(Dune::UMFPack<DiagMatWell>(duneD_));
 
         // duneB
         std::vector<unsigned int> Bcols;
@@ -697,7 +709,7 @@ namespace Opm
             Brows.emplace_back(sumBlocks);
         }
 
-        wellContribs.addMultisegmentWellContribution(numEq, numWellEq, Nb, Mb, BnumBlocks, Bvals, Bcols, Brows, DnumBlocks, Dvals, Dcols, Drows, Cvals);
+        // wellContribs.addMultisegmentWellContribution(numEq, numWellEq, Nb, Mb, BnumBlocks, Bvals, Bcols, Brows, DnumBlocks, Dvals, Dcols, Drows, Cvals);
     }
 #endif
 

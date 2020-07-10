@@ -172,6 +172,9 @@ namespace Opm
     protected:
         int number_segments_;
 
+#if HAVE_CUDA || HAVE_OPENCL
+        std::shared_ptr<Dune::UMFPack<DiagMatWell> > umfpack;
+#endif
         // components of the pressure drop to be included
         WellSegments::CompPressureDrop compPressureDrop() const;
         // multi-phase flow model
