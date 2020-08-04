@@ -76,14 +76,15 @@ WellContributions::~WellContributions()
     if(num_std_wells > 0){
 
 #if HAVE_OPENCL
+    if(num_std_wells > 0){
         delete[] d_Cnnzs_ocl;
         delete[] d_Dnnzs_ocl;
         delete[] d_Bnnzs_ocl;
         delete[] d_Ccols_ocl;
         delete[] d_Bcols_ocl;
         delete[] val_pointers;
-#endif
     }
+#endif
 }
 
 
