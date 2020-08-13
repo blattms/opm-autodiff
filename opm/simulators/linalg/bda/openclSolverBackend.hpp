@@ -64,12 +64,12 @@ private:
     cl::Buffer d_tmp;                            // used as tmp GPU buffer for dot() and norm()
     double *tmp = nullptr;                       // used as tmp CPU buffer for dot() and norm()
 
-    unsigned int num_blocks, dim_, dim_wells, num_std_wells;
-    unsigned int *h_val_pointers;
-    int *h_Ccols, *h_Bcols;
-    double *h_Cnnzs, *h_Dnnzs, *h_Bnnzs;
-    cl::Buffer d_Cnnzs, d_Dnnzs, d_Bnnzs;
-    cl::Buffer d_Ccols, d_Bcols, d_val_pointers;
+    //unsigned int num_blocks, dim_, dim_wells, num_std_wells;
+    //unsigned int *h_val_pointers;
+    //int *h_Ccols, *h_Bcols;
+    //double *h_Cnnzs, *h_Dnnzs, *h_Bnnzs;
+    //cl::Buffer d_Cnnzs, d_Dnnzs, d_Bnnzs;
+    //cl::Buffer d_Ccols, d_Bcols, d_val_pointers;
 
     // shared pointers are also passed to other objects
     std::shared_ptr<cl::Context> context;
@@ -135,7 +135,7 @@ private:
     /// \param[out] b       output vector
     void spmv_blocked_w(cl::Buffer vals, cl::Buffer cols, cl::Buffer rows, cl::Buffer x, cl::Buffer b);
 
-    void add_well_contributions_w(cl::Buffer valsC, cl::Buffer valsD, cl::Buffer valsB, cl::Buffer colsC, cl::Buffer colsB, cl::Buffer x, cl::Buffer y, cl::Buffer val_pointers);
+    //void add_well_contributions_w(cl::Buffer valsC, cl::Buffer valsD, cl::Buffer valsB, cl::Buffer colsC, cl::Buffer colsB, cl::Buffer x, cl::Buffer y, cl::Buffer val_pointers);
 
     /// Solve linear system using ilu0-bicgstab
     /// \param[in] wellContribs   WellContributions, to apply them separately, instead of adding them to matrix A
@@ -155,7 +155,7 @@ private:
     void finalize();
 
     /// Copy linear system to GPU
-    void copy_system_to_gpu();
+    void copy_system_to_gpu(WellContributions& wellContribs);
 
     /// Reorder the linear system so it corresponds with the coloring
     /// \param[in] vals           array of nonzeroes, each block is stored row-wise and contiguous, contains nnz values
