@@ -241,17 +241,9 @@ void openclSolverBackend<block_size>::gpu_pbicgstab(WellContributions& wellContr
         t_spmv.stop();
 
         // apply wellContributions
-        if (wellContribs.getNumStdWells() > 0) {
-            t_well.start();
-            wellContribs.applyStdWell(queue.get(), d_pw, d_v, add_well_contributions_k.get());
-            t_well.stop();
-        }
-
-        if (wellContribs.getNumMSWells() > 0) {
-            t_well.start();
-            wellContribs.applyMSWell(queue.get(), d_pw, d_v);
-            t_well.stop();
-        }
+        t_well.start();
+        wellContribs.apply(queue.get(), d_pw, d_v, add_well_contributions_k.get());
+        t_well.stop();
 
         t_rest.start();
         tmp1 = dot_w(d_rw, d_v, d_tmp);
@@ -479,7 +471,6 @@ void openclSolverBackend<block_size>::initialize(int N_, int nnz_, int dim, doub
 
         prec->setOpenCLContext(context.get());
         prec->setOpenCLQueue(queue.get());
-        //wellContribs.getParams(&num_blocks, &num_std_wells, &dim_, &dim_wells);
 
         rb = new double[N];
         tmp = new double[N];
