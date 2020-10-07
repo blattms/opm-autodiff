@@ -28,7 +28,7 @@
 #ifndef EWOMS_ECL_TRANSMISSIBILITY_HH
 #define EWOMS_ECL_TRANSMISSIBILITY_HH
 
-#include <ebos/nncsorter.hpp>
+#include "nncsorter.hh"
 
 #include <ewoms/common/propertysystem.hh>
 
@@ -38,13 +38,11 @@
 #include <opm/parser/eclipse/EclipseState/Grid/TransMult.hpp>
 #include <opm/parser/eclipse/Units/Units.hpp>
 
-
 #include <opm/grid/CpGrid.hpp>
+#include <dune/grid/common/mcmgmapper.hh>
 
 #include <opm/material/common/Exceptions.hpp>
 #include <opm/material/common/ConditionalStorage.hpp>
-
-#include <dune/grid/common/mcmgmapper.hh>
 
 #include <dune/common/version.hh>
 #include <dune/common/fvector.hh>
