@@ -217,11 +217,23 @@ namespace Opm {
     template<typename TypeTag>
     std::vector< Well >
     BlackoilWellModel<TypeTag>::
-    getLocalNonshutWells(const int timeStepIdx, int& globalNumWells) const
+    getLocalNonshutWells(const int timeStepIdx, int& globalNumWells)
     {
         auto w = schedule().getWells(timeStepIdx);
         globalNumWells = w.size();
         w.erase(std::remove_if(w.begin(), w.end(), is_shut_or_defunct_), w.end());
+        local_parallel_well_info_.clear();
+        local_parallel_well_info_.reserve(w.size());
+        for (const auto& well : w)
+        {
+            auto wellPair = std::make_pair(well.name(), true);
+            auto pwell = std::lower_bound(parallel_well_info_.begin(),
+                                          parallel_well_info_.end(),
+                                          wellPair);
+            assert(pwell != parallel_well_info_.end() &&
+                   *pwell == wellPair);
+            local_parallel_well_info_.push_back(&(*pwell));
+        }
         return w;
     }
 
@@ -759,6 +771,7 @@ namespace Opm {
 
                 if (!well_ecl.isMultiSegment() || !param_.use_multisegment_well_) {
                     well_container.emplace_back(new StandardWell<TypeTag>(well_ecl,
+                                                                          *local_parallel_well_info_[w],
                                                                           time_step,
                                                                           param_,
                                                                           *rateConverter_,
@@ -770,6 +783,7 @@ namespace Opm {
                                                                           well_perf_data_[w]));
                 } else {
                     well_container.emplace_back(new MultisegmentWell<TypeTag>(well_ecl,
+                                                                              *local_parallel_well_info_[w],
                                                                               time_step,
                                                                               param_,
                                                                               *rateConverter_,
@@ -826,6 +840,7 @@ namespace Opm {
 
         if (!well_ecl.isMultiSegment() || !param_.use_multisegment_well_) {
             return WellInterfacePtr(new StandardWell<TypeTag>(well_ecl,
+                                                              *local_parallel_well_info_[index_well_ecl],
                                                               report_step,
                                                               param_,
                                                               *rateConverter_,
@@ -837,6 +852,7 @@ namespace Opm {
                                                               well_perf_data_[index_well_ecl]));
         } else {
             return WellInterfacePtr(new MultisegmentWell<TypeTag>(well_ecl,
+                                                                  *local_parallel_well_info_[index_well_ecl],
                                                                   report_step,
                                                                   param_,
                                                                   *rateConverter_,
