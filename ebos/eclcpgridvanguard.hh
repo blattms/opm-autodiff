@@ -219,7 +219,7 @@ public:
 
                     PropsCentroidsDataHandle<Dune::CpGrid> handle(*grid_, eclState, eclGrid, this->centroids_,
                                                                   cartesianIndexMapper());
-                    this->parallelWells_ = std::get<1>(grid_->loadBalance(handle, edgeWeightsMethod, &wells, serialPartitioning, faceTrans.data(), ownersFirst));
+                    this->parallelWells_ = std::get<1>(grid_->loadBalance(handle, edgeWeightsMethod, &wells, serialPartitioning, faceTrans.data(), ownersFirst, false, 1, /*  useZoltan = */ false));
                 }
                 catch(const std::bad_cast& e)
                 {
