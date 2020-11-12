@@ -75,6 +75,27 @@ struct FlowEarlyBird {
 }
 
 } // namespace Opm::Properties
+#if HAVE_MPI
+class MPIError {
+public:
+  /** @brief Constructor. */
+  MPIError(std::string s, int e) : errorstring(s), errorcode(e){}
+  /** @brief The error string. */
+  std::string errorstring;
+  /** @brief The mpi error code. */
+  int errorcode;
+};
+
+void MPI_err_handler(MPI_Comm *, int *err_code, ...){
+  char *err_string=new char[MPI_MAX_ERROR_STRING];
+  int err_length;
+  MPI_Error_string(*err_code, err_string, &err_length);
+  std::string s(err_string, err_length);
+  std::cerr << "An MPI Error ocurred:"<<std::endl<<s<<std::endl;
+  delete[] err_string;
+  throw MPIError(s, *err_code);
+}
+#endif
 
 namespace Opm {
   template <class TypeTag>
@@ -100,6 +121,11 @@ namespace Opm {
 # else
     Dune::MPIHelper::instance(argc, argv);
 # endif
+#if HAVE_MPI
+    MPI_Errhandler handler;
+    MPI_Comm_create_errhandler(MPI_err_handler, &handler);
+    MPI_Comm_set_errhandler(MPI_COMM_WORLD, handler);
+#endif
     Opm::FlowMainEbos<TypeTag> mainfunc(argc, argv, outputCout, outputFiles);
     return mainfunc.execute();
   }
@@ -357,6 +383,11 @@ namespace Opm
             // rank() and size() methods are supposed to be static.)
             const auto& mpiHelper = Dune::MPIHelper::instance(argc_, argv_);
             int mpiRank = mpiHelper.rank();
+#if HAVE_MPI
+            MPI_Errhandler handler;
+            MPI_Comm_create_errhandler(MPI_err_handler, &handler);
+            MPI_Comm_set_errhandler(MPI_COMM_WORLD, handler);
+#endif
 #endif
 
             // we always want to use the default locale, and thus spare us the trouble
