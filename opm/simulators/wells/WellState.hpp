@@ -215,8 +215,9 @@ namespace Opm
                     assert(pwinfo.communication().rank() != 0 || &dummyWell != &well);
                     // report the local connections
                     reportConnections(dummyWell, pu, itr, globalCellIdxMap);
-                    // gather them to to well on root.
-                    gatherVectorsOnRoot(dummyWell.connections, well.connections, pwinfo.communication());
+                    // gather them to well on root.
+                    gatherVectorsOnRoot(dummyWell.connections, well.connections,
+                                        pwinfo.communication());
                 }
             }
 
@@ -268,8 +269,8 @@ namespace Opm
 #else
         using Communication = Dune::CollectiveCommunication<MPIComm>;
 #endif
-        void gatherVectorsOnRoot(std::vector< data::Connection > from_connections,
-                                 std::vector< data::Connection > to_connections,
+        void gatherVectorsOnRoot(const std::vector< data::Connection >& from_connections,
+                                 std::vector< data::Connection >& to_connections,
                                  const Communication& comm) const
         {
             int size = from_connections.size();
