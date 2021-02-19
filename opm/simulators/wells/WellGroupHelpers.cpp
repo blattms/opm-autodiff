@@ -1145,8 +1145,8 @@ namespace WellGroupHelpers
 
             const double current_rate = rates[phasePos];
             const double target_rate = fraction
-                * std::max(0.0, (voidageRate / coeff - groupTargetReduction + current_rate * efficiencyFactor))
-                / efficiencyFactor;
+                * std::max(0.0, (voidageRate / coeff - groupTargetReduction + current_rate));// * efficiencyFactor))
+            // / efficiencyFactor;
             if (current_rate > target_rate) {
                 constraint_broken = true;
                 target_fraction = target_rate / current_rate;
