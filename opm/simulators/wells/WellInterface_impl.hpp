@@ -2284,7 +2284,7 @@ namespace Opm
 
             voidageRate -= injReduction;
 
-            double target = std::max(0.0, ( voidageRate/coeff - groupTargetReduction)) / efficiencyFactor;
+            double target = std::max(0.0, ( voidageRate/coeff - groupTargetReduction));// / efficiencyFactor;
             control_eq = injection_rate - fraction * target;
             break;
         }
