@@ -2012,6 +2012,10 @@ namespace Opm
         case Well::InjectorCMode::GRUP: {
             assert(well_ecl_.isAvailableForGroupControl());
             const auto& group = schedule.getGroup(well_ecl_.groupName(), current_step_);
+            if(group.name().find("REP")!=std::string::npos)
+            {
+                std::cout<<"REP ("<<name()<<"): input GEFAC "<<efficiencyFactor<<std::endl;
+            }
             getGroupInjectionControl(group,
                                      well_state,
                                      schedule,
@@ -2197,6 +2201,18 @@ namespace Opm
 
         const Group::InjectionCMode& currentGroupControl = well_state.currentInjectionGroupControl(injectionPhase, group.name());
 
+                
+        if(group.name().find("REP")!=std::string::npos &&
+           name().find("F-11H")!= std::string::npos)
+        {
+            std::cout<<"REP ("<<name()<<"): GEFAC="<<group.getGroupEfficiencyFactor()
+                     <<" control="<<(int)well_state.currentInjectionGroupControl(injectionPhase, group.name())<<std::endl;
+            std::cout<<"FLD="<<(int)Group::InjectionCMode::FLD<<" NONE="<<(int)Group::InjectionCMode::NONE
+                     <<" REIN="<<(int)Group::InjectionCMode::REIN<<" RATE="<<(int)Group::InjectionCMode::RATE
+                     <<" RESV="<<(int)Group::InjectionCMode::RESV<<" VREP="<<(int)Group::InjectionCMode::VREP
+                     <<" FLD="<<(int)Group::InjectionCMode::FLD<<" SALE="<<(int)Group::InjectionCMode::SALE<<std::endl;
+        }
+
         if (currentGroupControl == Group::InjectionCMode::FLD ||
             currentGroupControl == Group::InjectionCMode::NONE) {
             if (!group.injectionGroupControlAvailable(injectionPhase)) {
@@ -2245,7 +2261,7 @@ namespace Opm
         case Group::InjectionCMode::RATE:
         {
             double target = std::max(0.0, (groupcontrols.surface_max_rate - groupTargetReduction)) / efficiencyFactor;
-            control_eq = injection_rate - fraction * target;
+            control_eq = injection_rate - fraction * target / group.getGroupEfficiencyFactor();
             break;
         }
         case Group::InjectionCMode::RESV:
@@ -2273,6 +2289,11 @@ namespace Opm
 
             double injReduction = 0.0;
             std::vector<double> groupInjectionReservoirRates = well_state.currentInjectionGroupReservoirRates(group.name());
+            if(group.name().find("REP")!=std::string::npos &&
+               name().find("F-11H")!= std::string::npos)
+            {
+                std::cout<<"VREP group REP ("<<name()<<"): WEFAC "<<efficiencyFactor<<std::endl;
+            }
             if (groupcontrols.phase != Phase::WATER)
                 injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Aqua]] * coeff;
 
@@ -2284,8 +2305,8 @@ namespace Opm
 
             voidageRate -= injReduction;
 
-            double target = std::max(0.0, ( voidageRate/coeff - groupTargetReduction));// / efficiencyFactor;
-            control_eq = injection_rate - fraction * target;
+            double target = std::max(0.0, ( voidageRate/coeff - groupTargetReduction)) / efficiencyFactor;
+            control_eq = injection_rate - fraction * target / group.getGroupEfficiencyFactor();
             break;
         }
         case Group::InjectionCMode::FLD:
