@@ -2261,7 +2261,7 @@ namespace Opm
         case Group::InjectionCMode::RATE:
         {
             double target = std::max(0.0, (groupcontrols.surface_max_rate - groupTargetReduction)) / efficiencyFactor;
-            control_eq = injection_rate - fraction * target / group.getGroupEfficiencyFactor();
+            control_eq = injection_rate - fraction * target;
             break;
         }
         case Group::InjectionCMode::RESV:
@@ -2295,18 +2295,18 @@ namespace Opm
                 std::cout<<"VREP group REP ("<<name()<<"): WEFAC "<<efficiencyFactor<<std::endl;
             }
             if (groupcontrols.phase != Phase::WATER)
-                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Aqua]] * coeff;
+                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Aqua]];
 
             if (groupcontrols.phase != Phase::OIL)
-                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Liquid]] * coeff;
+                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Liquid]];
 
             if (groupcontrols.phase != Phase::GAS)
-                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Vapour]] * coeff;
+                injReduction += groupInjectionReservoirRates[pu.phase_pos[BlackoilPhases::Vapour]];
 
             voidageRate -= injReduction;
 
             double target = std::max(0.0, ( voidageRate/coeff - groupTargetReduction)) / efficiencyFactor;
-            control_eq = injection_rate - fraction * target / group.getGroupEfficiencyFactor();
+            control_eq = injection_rate - fraction * target;
             break;
         }
         case Group::InjectionCMode::FLD:
