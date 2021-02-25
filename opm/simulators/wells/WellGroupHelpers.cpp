@@ -128,11 +128,10 @@ namespace WellGroupHelpers
         double rate = 0.0;
         for (const std::string& groupName : group.groups()) {
             const Group& groupTmp = schedule.getGroup(groupName, reportStepIdx);
-            rate += sumWellPhaseRates(rates, groupTmp, schedule, wellState, reportStepIdx, phasePos, injector);
+            rate += groupTmp.getGroupEfficiencyFactor()
+                * sumWellPhaseRates(rates, groupTmp, schedule, wellState, reportStepIdx, phasePos, injector);
         }
         const auto& end = wellState.wellMap().end();
-        const auto& gefac = group.getGroupEfficiencyFactor();
-
         for (const std::string& wellName : group.wells()) {
             const auto& it = wellState.wellMap().find(wellName);
             if (it == end) // the well is not found
@@ -160,7 +159,7 @@ namespace WellGroupHelpers
             else
                 rate -= factor * rates[wellrate_index + phasePos];
         }
-        return gefac * rate;
+        return rate;
     }
 
     double sumWellRates(const Group& group,
