@@ -111,6 +111,12 @@ if(NOT CMAKE_DISABLE_FIND_PACKAGE_CUDA AND
     set(ENV{CUDAHOSTCXX} ${CMAKE_CUDA_HOST_COMPILER}) # The only thing honored by check_language(CUDA)!
   endif()
   include(CheckLanguage)
+  if(NOT CMAKE_CUDA_STANDARD)
+    # Force nvcc to use the same standard. Without e.g. -std=c++11 might be used.
+    # Using 14 as 17 is not supported in CMake version 3.10 and raises a compile
+    # error "CUDA_STANDARD is set to invalid value '17'"
+    set(CMAKE_CUDA_STANDARD 14)
+  endif()
   check_language(CUDA)
   if(CMAKE_CUDA_COMPILER)
     # OPTIONAL is ignored. Hence the magic above to check whether enabling CUDA works
