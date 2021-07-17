@@ -77,6 +77,13 @@ BlackoilWellModelGeneric(Schedule& schedule,
   };
 }
 
+std::vector<Well>& 
+BlackoilWellModelGeneric::
+localWells() const
+{
+    return wells_ecl_;
+}
+
 int
 BlackoilWellModelGeneric::
 numLocalWells() const

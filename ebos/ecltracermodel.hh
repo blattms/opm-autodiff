@@ -318,6 +318,12 @@ protected:
                 cartesianCoordinate[2] = connection.getK();
                 const size_t cartIdx = simulator_.vanguard().cartesianIndex(cartesianCoordinate);
                 const int I = this->cartToGlobal_[cartIdx];
+                if (I < 0)
+                {
+                    // perforation located on another process
+                    // \TODO not enough for distributed wells.
+                    continue;
+                }
                 Scalar rate = simulator_.problem().wellModel().well(well.name())->volumetricSurfaceRateForConnection(I, tr.phaseIdx_);
                 if (rate > 0) {
                     for (int tIdx =0; tIdx < tr.numTracer(); ++tIdx) {
@@ -384,9 +390,14 @@ protected:
 
         // Store _producer_ tracer rate for reporting
         const int episodeIdx = simulator_.episodeIndex();
-        const auto& wells = simulator_.vanguard().schedule().getWells(episodeIdx);
+        const auto& wells = simulator_.problem().wellModel().localWells();
+        const auto& wellInfos = simulator_.problem().wellModel().localParallelWellInfos();
+        int well_index = 0;
+        
         for (const auto& well : wells) {
 
+            const auto& wellInfo = wellInfos[well_index++];
+            
             if (well.getStatus() == Well::Status::SHUT)
                 continue;
 

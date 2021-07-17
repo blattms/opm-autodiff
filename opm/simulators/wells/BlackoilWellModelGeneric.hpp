@@ -157,6 +157,9 @@ public:
     bool forceShutWellByNameIfPredictionMode(const std::string& wellname,
                                              const double simulation_time);
 
+    /// \brief Get list of local wells in parallel run
+    std::vector<Well>& localWells() const;
+
 protected:
 
     /*
